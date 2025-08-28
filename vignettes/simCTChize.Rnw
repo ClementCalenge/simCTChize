@@ -110,7 +110,7 @@ install the Rtools (available at this URL:
 \url{https://cran.r-project.org/bin/windows/Rtools/}).\\
 
 Then, one possibility is to download the tarball from Zenodo (URL:
-\url{https://doi.org/10.5281/zenodo.XXXXXXX}), and then to place it in
+\url{https://doi.org/10.5281/zenodo.16989360}), and then to place it in
 the R working directory. The installation is then simple:
 
 <<eval=FALSE>>=
