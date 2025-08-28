@@ -1,0 +1,17 @@
+Package: simCTChize
+Type: Package
+Title: Simulate a Camera Trap Monitoring of a Roe Deer Population in Chize
+Version: 1.0
+Date: 2024-04-03
+Author: Clement Calenge <clement.calenge@ofb.gouv.fr>
+Maintainer: Clement Calenge <clement.calenge@ofb.gouv.fr>
+Depends: R (>= 4.1.0)
+Imports: ctmm, splancs
+Suggests: sf, adehabitatHR, ggplot2,knitr
+LazyData: true
+LazyDataCompression: gzip
+Encoding: UTF-8
+Description: This package contains functions to simulate the movements of the roe deer in the Chize study area, and monitor their number over several years with camera traps. 
+License: GPL (>= 2)
+VignetteBuilder: knitr
+NeedsCompilation: yes

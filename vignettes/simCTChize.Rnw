@@ -1,0 +1,3177 @@
+\documentclass[a4paper]{article}
+%\VignetteEngine{knitr::knitr}
+%\VignetteIndexEntry{Evaluating camera trap methods for monitoring population trends in ungulates: insights from simulation}
+%\VignetteDepends{knitr, ctmm, adehabitatHR}
+\usepackage{fancyvrb}
+\usepackage{color}
+\usepackage{url}
+\usepackage{amsfonts}
+%\usepackage{pdfcolmk}
+\usepackage{epsfig}
+\usepackage[colorlinks=true,linkcolor=blue,urlcolor=blue,citecolor=blue]{hyperref}
+%\usepackage{longtable}
+\usepackage{natbib}
+\usepackage{ucs}
+\usepackage{savesym}
+\savesymbol{iint}
+\savesymbol{iiint}
+\usepackage{amsmath}
+%\usepackage{rotating}
+\usepackage[title,titletoc]{appendix}
+%\usepackage[utf8]{inputenc}
+\newlength{\defaultparindent}
+\setlength{\defaultparindent}{\parindent}
+\newenvironment{Default Paragraph Font}{}{}
+\newcommand{\INT}[1]{\stackrel{\circ}{#1}}
+\topmargin -1.5cm
+\headheight 0.5cm
+\headsep 1.0cm
+\topskip 0.5cm
+\textheight 24.5cm
+\footskip 1.0cm
+\oddsidemargin 0.0cm
+\evensidemargin 0.0cm
+\textwidth 16cm
+\parskip 0.2cm
+\parindent 1.0cm
+\baselineskip 0.2cm
+\renewcommand{\thesection}{S\arabic{section}}
+\renewcommand{\thesubsection}{S\arabic{section}.\arabic{subsection}}
+\renewcommand{\thesubsubsection}{S\arabic{section}.\arabic{subsection}.\arabic{subsubsection}}
+
+\title{Evaluating camera trap methods for monitoring population trends in ungulates: insights from simulation}
+\author{Cl\'{e}ment Calenge, Sonia Sa\"{i}d, Jules Chiffard, Mathieu Garel \& Maryline Pellerin.}  \date{}
+\setlength{\parindent}{0cm}
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\begin{document}
+
+\maketitle
+\tableofcontents
+  
+<<setup, include=FALSE, cache=FALSE>>=
+# set global chunk options
+library('knitr')
+opts_chunk$set(fig.path="wapat-",
+               fig.align="center",
+               fig.show="hold",
+               echo=TRUE,
+               results="markup",
+               fig.width=7,
+               fig.height=7, out.width='0.6\\linewidth',
+               out.height='0.6\\linewidth',
+               cache=FALSE,
+               dev='png',
+               concordance=TRUE,
+               error=FALSE)
+opts_knit$set(aliases = c(h = 'fig.height',
+              w = 'fig.width',
+              wo='out.width',
+              ho='out.height'))
+options(replace.assign=TRUE,width=60)
+opto <- options()
+str <- options()$str
+str$vec.len <- 2
+options(str=str)
+set.seed(9567)
+@
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%                                                            %%%%
+%%%%                  The vignette starts here                  %%%%
+%%%%                                                            %%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\newpage
+
+\section{Introduction}
+
+
+This vignette contains the supplementary material of
+\citet{Calengeinprep}. The aim of this paper is to assess the bias and
+precision in animal population size estimation based on camera traps
+data. We rely on simulations of a virtual population of roe deer in
+the study area of Chiz\'{e}. A companion package named
+\texttt{simCTChize} contains the data and functions used for this
+paper, and is required to reproduce the calculations in this
+document. The present document is also available as a vignette of this
+package.\\
+
+Several options are available to install this package. For all
+options, if the user is using Windows, it is required that they
+install the Rtools (available at this URL:
+\url{https://cran.r-project.org/bin/windows/Rtools/}).\\
+
+Then, one possibility is to download the tarball from Zenodo (URL:
+\url{https://doi.org/10.5281/zenodo.XXXXXXX}), and then to place it in
+the R working directory. The installation is then simple:
+
+<<eval=FALSE>>=
+install.packages("simCTChize_1.0.tar.gz", repos = NULL, type="source")
+@ 
+
+Another possibility is to install it from Github with the function
+\texttt{install\_github} from the package \texttt{devtools} (which
+also needs to be installed):
+
+<<eval=FALSE>>=
+## If devtools is not yet installed, type
+install.packages("devtools")
+
+## Install the package badgertub
+devtools::install_github("ClementCalenge/simCTChize", ref="main")
+@ 
+
+
+Throughout this vignette, we suppose that the reader is familiar with
+the models and simulations developed in the main paper. We give the R
+code used for our simulations.\\
+
+Our approach consists in generating realistic simulations of the
+movement of $N$ animals in the study area of Chize in March of each
+year of a 5-year period. During this period, the average home-range
+size of the animals increases and the population size decreases
+progressively. Each year, a set of $R$ camera traps are placed on the
+study area and record the movements of the animals. Similarly, we
+simulate a realistic detection process (presence of obstacles,
+decreasing detection probability with distance, detectability
+depending on the habitat type). Finally, we use the random encounter
+model \citep[REM,][]{Rowcliffe2008} and the instantaneous sampling
+\citep[IS,][]{Moeller2018} to estimate the population size of each
+year as well as the decreasing trend. We have considered various
+parameterizations for these two methods in order to estimate the
+population size (accounting for activity rythm of the animals or not,
+accounting for imperfect detection of animals or not). In this
+document, we present the R code that we used for these
+simulations. \\
+
+We first load the package:
+
+<<load-package>>=
+library(simCTChize)
+@
+
+
+\newpage
+
+\section{The components of the simulations: movement and detection}
+\label{sec:r-code-used}
+
+\subsection{Simulating roe deer movements}
+
+\subsubsection{Description of the simulated movement process}
+
+To simulate the movements of a roe deer, we first simulate a set of
+attraction points in its home range. These points correspond to places
+where the animal will search food more intensively. The animal
+will alternate between three types of movements:\\
+
+\begin{itemize}
+\item \textit{Patch-level movements}: these movements simulate an
+  intensive use of the habitat patches in the neighborhood of the
+  attraction point. Formally, we simulate an Ornstein-Uhlenbeck with
+  foraging process \citep{Fleming2014} with a very small variance,
+  centred on the attraction point (before generating a sequence of
+  relocations with this type of movement, the attraction point for
+  this sequence is randomly sampled among the set of attraction
+  points simulated at the beginning of the process).\\ 
+
+\item \textit{Between-patch movements}: these movements simulate a
+  less intensive space use describing movements between patches. They
+  are also simulated with Orntein-Uhlenbeck with foraging processes
+  characterized by a larger variance, and also centred on one randomly
+  sampled attraction points (again, one point is sampled before
+  generating each sequence).\\
+
+\item \textit{Resting}: in this case, the animal does not move at
+  all, and remains at the same location during the whole resting
+  period.\\
+\end{itemize}
+
+The movement simulation is based on the following daily pattern. The
+day is supposed to start at 17:00 in the evening; for each day of the
+month:\\ 
+\begin{itemize}
+\item We first simulate the presence of a resting period in the middle
+  of the day with a probability equal to 0.85. If a resting period is
+  simulated during a particular day, its starting time $m$ is randomly
+  drawn from a uniform distribution bounded by 8:00 and 15:00. The
+  duration of the resting period (in hours) is equal to
+  $d = 15 - m + e$, where $e$ is a residual randomly drawn from a
+  Gaussian distribution with mean 0 and standard deviation 1
+  (truncated so that the resting period never ends after 17:00);\\
+
+\item We then randomly place patch-level movements in the remaining
+  periods of the 24-h sequence: we simulate the start time of these
+  patches movement -- if any -- by simulating a Poisson process with
+  constant intensity $\lambda'(t) = 0.66/(15\times 3600)$ (which
+  guarantees a mean number of patches equal to 0.66 per night). Their
+  duration is randomly drawn from a uniform distribution bounded by 0
+  and 5 hours.\\
+
+\item Finally, we randomly place ``resting patches'' in the remaining
+  periods except between 6:00 and 8:00 in the morning where all
+  animals are supposed active. We simulate the start time of these
+  resting patches with a Poisson process with constant intensity
+  $\lambda'(t) = 0.33/(15/3600)$. The duration of each patch is
+  randomly drawn from a uniform distribution bounded by 0 and 5
+  hours.\\
+
+\item ``between-patch'' type of movements are simulated in the
+  remaining periods. 
+\end{itemize}
+
+When the animal switches to a resting period, it stops moving
+immediately at the beginning of the period and does not move until the
+end of the resting period. When the animal switches to
+``between-patches movement'' type, an attraction point is randomly
+drawn from the simulated set, and an Ornstein-Uhlenbeck with foraging
+process is simulated with the following parameters:
+$\tau_r = \tau_v =$ 4000 seconds and a value of $\sigma^2$ randomly
+drawn from a uniform distribution bounded by 1000 and 10000
+$m^2$. When the animal switches to ``patch movement'', a new
+attraction point is again randomly drawn from the simulated set, and
+an Ornstein-Uhlenbeck with foraging process is simulated with the
+following parameters: $\tau_r = \tau_v =$ 300 seconds, and a value of
+$\sigma^2$ equal to 200 $m^2$. All these parameters (of the
+Ornstein-Uhlenbeck processes, of the distributions controlling the
+occurrence and duration of the different sequences, etc.) have been
+set after an analysis of GPS data collected in the Chiz\'{e} study
+area.
+
+\subsubsection{Simulation in R}
+
+The package \texttt{simCTChize} contains all the required elements
+implementing this process. The first step of the simulation process
+consists in simulating a set of attraction points for the
+Ornstein-Uhlenbeck process. We used GPS data collected on 25 roe deer
+to estimate 25 sets of attraction points: we used the kernel method to
+estimate the utilization distribution for each animal, and we
+identified the local modes in this distribution (each mode
+corresponding to an attraction point). We used this list of 25 sets of
+attraction points as a basis for our simulations. Thus, to simulate
+the movement of a roe deer, we first sampled one of the 25 available
+sets that we randomly shifted over the study area. The dataset
+\texttt{listPatches} from the package is a list of the 25 matrices
+containing the coordinates of the attraction points of these 25
+animals (centred so that their mean x and y coordinates are equal to
+zero). For example, we can plot the set of attraction points for the
+first animal:
+
+<<plot-list-patches>>=
+plot(listPatches[[1]])
+@ 
+
+The simulation of roe deer movements requires the pre-calculation of
+matrices that will be used for the simulation of Ornstein-Uhlenbeck
+processes. These calculations are carried out by functions of the
+package \texttt{ctmm}, and the wrapper function \texttt{prepareMvt}
+from our package can be used to calculate these matrices from the
+values of the parameters $\tau_v,\tau_r,\sigma$ (see the help
+page of this function). For example, to prepare the matrices required
+for our simulations:
+
+<<calc-matrices-mvts, eval=FALSE>>=
+## A list of matrices with different values of sigma comprised between
+## 1000 and 10000 for the "between patches movement" (remember that
+## sigma is randomly drawn between 1000 and 10000 m2 for this movement
+## type, so that we need a list of matrices -- explaining the use of
+## lapply here)
+listMatBetween <- lapply(seq(1000,10000, by=1000),
+                         function(x) prepareMvt(tau = c(4000,4000),
+                                                sigma = x))
+
+## The list of matrices for the "patch movement" 
+MatWithin <- prepareMvt(tau = c(300,300), sigma = 200)
+
+## We store the results in a list
+mvtMatrices <- list(listMatBetween=listMatBetween,
+                    MatWithin=MatWithin)
+@ 
+
+Note that we use here internal functions from \texttt{ctmm}, which may
+not be available to the user in the future. To make sure that our
+package will still be usable even if these functions are deprecated,
+we stored the results of these calculations as a dataset of the
+package (the dataset \texttt{mvtMatrices}), so that the user does not
+have to worry if the above command lines no longer work on their
+computer.
+
+Finally, one can use the function \texttt{roeDeerMovement} to simulate
+the movements of one animal during 30 days using the process
+described in the previous section (see the help page of this function
+for further information about its parameters):
+
+<<example-movements>>=
+## Simulation of movement for 30 days:
+set.seed(777) ## for reproducibility
+
+## Lets say that we simulate movements between the attraction points
+## of the first set of patches
+setpat <- list(listPatches[[1]])
+
+
+## We will simulate an animal with sigma=1000 for between-patches
+## movements (first matrix of listMatBetween).
+lipt <- list(ptg=mvtMatrices$listMatBetween[[1]],
+             ptp=mvtMatrices$MatWithin)
+
+## Simulation
+rd <- roeDeerMovement(30, setpat, lipt = lipt, verbose=FALSE)
+
+## the result:
+plot(rd, ty="l", asp=1, xlab="X coordinate (metres)",
+     ylab="Y coordinate (metres)")
+@ 
+
+The roe deer alternates between several attraction points. Note that
+here the relocations are centred on (0,0).\\
+
+After this simulation, the next step consists in positionning this
+movement in space and time. First, we have to define the coordinates
+of the home range centroid. In the following, we will suppose that
+this centroid is characterized by the coordinates 0,0:
+
+<<>>=
+## The coordinates of the centroid
+coordinatesHRcentroid <- c(0,0)
+
+## Shift the movement to this centroid
+rd[,1] <- rd[,1]+coordinatesHRcentroid[1]
+rd[,2] <- rd[,2]+coordinatesHRcentroid[2]
+@ 
+
+Of course, in this particular example, this code is useless (adding 0
+to the coordinates does not change the coordinates), but this code is
+there to illustrate that the next step after simulation of the
+movement is to position it in space (in practice,
+\texttt{coordinatesHRcentroid} will correspond to the Lambert II
+coordinates of a point sampled on the study area). Finally, we must
+position this movement in time by defining a variable named
+\texttt{date} and containing the date and time of each relocation
+(using the format \texttt{POSIXct}, i.e. as the number of seconds
+elapsed since January 1st 1:00). For this example, we define simply:
+
+<<>>=
+## Transform in data.frame and add a date
+rd <- as.data.frame(rd)
+rd$date <- 1:nrow(rd)
+@ 
+
+So that the data.frame stores one relocation per second.
+
+
+
+
+\subsection{The detection by camera traps}
+
+\subsubsection{Description of the simulated detection process}
+
+The previous subsection showed how we simulated random movement of the
+animals on the study area. The other aspect of our simulations
+correspond to the detection of these movements by a camera trap. In
+this section we describe how we simulated this detection
+process. First, we simulate the presence of obstacles in the
+neighborhood of the trap (the area located within 20 m from the trap),
+which will affect the detectability of the animals. The density of
+obstacles depends on the habitat type where
+the trap is placed:\\
+
+\begin{itemize}
+\item \textit{Coppice}: in this habitat type, we simulate three types
+  of stems: big, medium and small trees. For each type of trees we
+  first randomly place $T$ trees with a diameter randomly drawn from a
+  uniform distribution (comprised between 17.5 and 27.5 cm for small
+  trees, between 27.5 and 47.5 cm for medium trees, and between 47.5
+  cm and 1 m for large trees), with $T$ drawn from a Poisson
+  distribution parameterized by mean calculated from a density of
+  stems per hectare itself randomly drawn from a uniform distribution
+  (bounded by 50 and 70 stems per hectares for small trees, by 25 and
+  35 stems/ha for medium trees, and by 12 and 17 trees for large
+  trees). These values were based on \citet{CRPF2004}.\\
+
+\item \textit{Regeneration} and \textit{Open} habitat types are
+  characterized by the absence of obstacles. This may seem surprising
+  for the regeneration type, but we simulated the lower detectability
+  differently for this habitat type (by simulating a detection
+  probability decreasing much more rapidly with the distance to the
+  trap than for other habitat types, see below).\\
+\end{itemize}
+
+Once the presence of obstacle is simulated, we build a map of the
+detection probability in the detection zone of the trap. The
+orientation of the trap relative to the East direction is randomly
+drawn from a uniform distribution bounded by 0 and $2\pi$. The radius
+of the detection zone is fixed at 20 m. The angle of the detection
+zone is set to 0.175 radians. The detection zone is discretized in
+pixels of 10$\times$10 cm. The probability of detection of an animal
+whose centre of gravity is located in a given pixel depends on: (i)
+whether this centre of gravity is located behind an obstacle or not
+(the animal is considered invisible behind the obstacle); (ii) whether
+the animal is active or not (resting animals are considered
+invisible); (iii) the distance between the animal and the trap. We
+model the detection process as a time-to-event model \citep[aka
+``survival model'',][]{Therneau2000}, where the detection is modeled
+with a hazard function. If the animal is not resting, the hazard
+$\lambda(t)$ that the animal is detected $t$ seconds after it stayed
+active at a distance $d(t)$ from the camera trap is modeled by a Cox
+proportional hazard model:
+$$
+\lambda(t) = \lambda_0 \times \exp(\beta_d \times d(t))
+$$
+where $\lambda_0$ is a baseline hazard. This can be reformulated as
+$$
+\lambda(t) = \exp(\beta_0 + \beta_d \times d(t))
+$$
+with $\beta_0 = \log \lambda_0$. The parameter $\beta_d$ describes how
+the detectability decreases when the distance to the trap
+increases. The cumulative risk $\Lambda(T)$ can be calculated from the
+hazard function:
+$$
+\Lambda(T) = \int_0^T \lambda(t)dt
+$$
+The probability that the animal is detected after $t$ seconds in the
+detection zone of the trap is then:
+$$
+D(t) = 1-\exp(-\Lambda(t))
+$$
+When T is small enough, then $\Lambda(T) \approx T\times
+\lambda(0)$. Here, we consider time intervals of $T = 1$ seconds, so
+that:
+$$
+D(t) = 1-\exp(-\exp(\beta_0+\beta_d\times d(t)))
+$$
+where $d(t)$ is the distance between the animal and the trap at time
+$t$.  In our simulations, we have fixed $\beta_0,\beta_d$ such that
+the probability to detect the animal in one second at small distance
+$d_1$ is nearly certain, set to $p_1$ (e.g. $p_1=0.99$), and the
+probability to detect it at a large distance $d_2$ is nearly 0, set to
+$p_2$ (e.g.  $p_2 = 0.01$). We can show that:
+\begin{eqnarray*}
+  \beta_d & = & (\log(-\log(1-p_1))-\log(-\log(1-p_2)))/(d_1-d_2)\\
+  \beta_0 & = & \log(-\log(1-p_2))-\beta_d\times d_2
+\end{eqnarray*}
+In our simulations, we defined different values of $\beta_0,\beta_d$
+for the different habitat types:
+\begin{itemize}
+\item \textit{Coppice} and \textit{Open} habitat types: we chose these
+  parameters so that the probability to detect the animal is
+  $p_1=0.99$ at $d_1 = 5$ metres from the trap, and $p_2 = 0.01$ at
+  $d_2 = 18$ metres from the trap \citep[calibrated visually from the
+  results of][who worked on a species with a similar size in a
+  similarly open environment]{Howe2017}.\\ 
+
+\item \textit{Regeneration} habitat type: we chose these
+  parameters so that the probability to detect the animal is
+  $p_1=0.99$ at $d_1 = 0.5$ metres from the trap, and $p_2 = 0.01$ at
+  $d_2 = 3$ metres from the trap (subjective choice).\\ 
+\end{itemize}
+
+
+\subsubsection{Implementation in R}
+\label{sec:implementation-r}
+
+The package \texttt{simCTChize} provides several functions to map the
+detectability of animals in the detection zone of a camera trap. The
+function \texttt{organiseCT} carries out all different steps described
+in the previous section (simulation of obstacles, random orientation
+of a trap, detectability, etc.). It takes only one argument,
+corresponding to the habitat type where the trap is located (see the
+help page of this function). For example, in the coppice:
+
+<<>>=
+set.seed(777)  ## for reproducibility
+ct <- organiseCT("Coppice")
+head(ct)
+@
+
+The result is a data.frame with three columns: the coordinates x and y
+of the pixels in the detection zone, and a column named \texttt{vu}
+containing the value of the hazard function $\lambda(1)$ for each
+one. We can show the result on a map:
+
+<<>>=
+## For a clearer depiction of the detectability:
+## log scale and rescale between 0 and 1
+u <- log(ct[,3]+0.001)
+v <- (u-min(u))/(max(u)-min(u))
+
+## Then show this detectability in grey levels
+plot(ct[,1],ct[,2], col=grey(v), pch=16, cex=0.7, asp=1,
+     xlab="X", ylab="Y", main="Detection zone of a camera trap")
+@ 
+
+On this map, we can see that there is a tree located on the boundary
+of the detection zone at about 3 or 4 metres of the trap (which is
+located at (0,0)), that hides every pixel behind (detection risk equal
+to 0 -- corresponding to the black area on this map). Also note that
+the detectability decreases with the distance to the trap and is
+nearly 0
+at 20 metres.\\
+
+\textit{Remark}: in the examples of the help page of the function
+\texttt{organiseCT}, we show how the user can use the other functions
+of the package to simulate camera traps in other environment types
+(e.g. partial obstacles, different types of obstacles, different
+detection functions, larger detection zones, etc.).\\
+
+Once the map of the detection zone has been simulated, our approach
+consist in placing this trap randomly on the map. This requires to
+sample a location for this trap. In practice in our simulations, we
+first sample the location of the trap, which allows to determine the
+habitat type where it is located (coppice, regeneration, open), and
+then we use \texttt{organiseCT} to simulate the detection zone. In
+this section, we do the reverse. Thus, after the use of
+\texttt{organiseCT}, we have to manually set the coordinates of the
+trap. To place this simulated trap in the same space as the roe deer
+simulated in the previous section, we place the trap at the
+coordinates (0,0). To define the coordinates of the trap, we set the
+attribute \texttt{cooori} for the object returned by
+\texttt{organiseCT}:
+
+<<>>=
+attr(ct, "cooori") <- c(0,0)                    
+@ 
+
+Now, for this example, we will place the movement simulated in the
+previous section in the same space as this trap.
+
+<<>>=
+u <- log(ct[,3]+0.001)
+v <- (u-min(u))/(max(u)-min(u))
+plot(ct[,1],ct[,2], col=grey(v), pch=16, cex=0.7, asp=1,
+     xlab="X", ylab="Y", main="Detection zone of a camera trap")
+lines(rd[,1:2], col="red")
+@ 
+
+During one month, the animal crossed 5 times the detection zone of
+this camera trap. We can simulate the detection process with the
+function \texttt{whenDetection} (see the help page of this function):
+
+<<>>=
+wd <- whenDetection(as.data.frame(rd), ct)
+str(wd)
+@ 
+
+The result is a data.frame describing the number of encounters between
+the animal and the trap. For each encounter, this data.frame indicates
+the date/time of the beginning and the end of the encounter, its
+duration, whether the encounter was detected or not, the theoretical
+probability that this encounter was detected based on the map of the
+detection zone, as well at the dates/times when the animal has been
+detected (using the terminology of our paper, the date/time of the
+\textit{associations}). We can show these encounters on the map:
+
+<<>>=
+u <- log(ct[,3]+0.001)
+v <- (u-min(u))/(max(u)-min(u))
+plot(ct[,1],ct[,2], col=grey(v), pch=16, cex=0.7, asp=1,
+     xlab="X", ylab="Y", main="Detection zone of a camera trap")
+lines(rd[,1:2], col="red")
+tmp <- lapply(wd$When, function(x) {
+    points(rd[rd$date%in%x, 1:2], pch=21, bg="yellow", col="green")
+})
+@ 
+
+Green/yellow points correspond to the animal relocations that were
+detected by the camera trap. We can see that encounter occurring close
+to the trap are detected at every second, whereas the encounters
+occurring far from it are more rarely detected.
+
+
+
+\section{Simulating the movements of a roe deer population during five years}
+\label{sec:simul-whole-popul}
+
+\subsection{Changes in population size}
+\label{sec:how-popul-chang}
+
+
+We explained in the previous section how we simulated the movement of
+one roe deer and how these movements were monitored using one camera
+trap. We now expand a bit on how we simulated the monitoring of a
+whole population during five years.\\
+
+First, we simulated a simplified population dynamics model to generate
+a decrease in population size. We started with an initial population
+size of $N_0 = 300$ individuals with a balanced sex ratio (we ignored
+the slightly larger proportion of females in this population;
+Pellerin, com. pers). The camera trap monitoring is carried out in
+March. For all years, we supposed that births occur in spring, after
+this monitoring. We supposed that 90\% of the $N_t/2$ females
+participate to the reproduction (slightly smaller than the 95\%
+observed nowadays in Chiz\'{e}, but our aim was to simulate a decrease
+in population size), and that each participating female had a
+probability of 0.3 to give birth to a fawn and a probability of 0.7 to
+give birth to two fawns (corresponding to the observed mean number of
+embryos per pregnant femal equal to 1.7). We suppose a balanced sex
+ratio among fawns, and we suppose that they survive until March of the
+following year with a probability of 0.3 (corresponding to fawn
+survival during the ``bad'' years in Chiz\'{e}, Pellerin,
+com. pers. -- again, our aim was to simulate a population
+decrease). If the fawns survive until the following year, they
+immediately become adult (we do not account for different age classes
+in our model, to keep it simple). We suppose that the adults of one
+year survive until the following year with a probability of 0.7 (such
+a survival probability is frequent in Chiz\'{e}).\\
+
+For the record, we show below the R code used to simulate this
+population dynamics:
+
+<<>>=
+set.seed(77) ## For the reproducibility
+survival <- 0.7
+survivalFawn <- 0.3
+propParticipatingFemales <- 0.9
+
+## What we have in March during year 1
+Nmales <- 150
+Nfemales <- 150
+Ntot <- Nmales+Nfemales
+
+## Reproductive females
+Nfemalesrepro <- rbinom(1, Nfemales, propParticipatingFemales)
+
+## Births: all participating females have by definition at least one fawn
+## They have a second one with a probability of 0.7
+Nbirths <- Nfemalesrepro+rbinom(1,Nfemalesrepro,0.7)
+
+## Half males and half females in the births
+Nyoungmales <- rbinom(1,Nbirths,0.5)
+Nyoungfemales <- Nbirths-Nyoungmales
+
+## We will need that
+Nfemalesrepro <- 0
+Newmales <- 0
+Newfemales <- 0
+Oldmales <- 0
+Oldfemales <- 0
+
+
+## For each year after the first one
+for (i in 2:5) {
+
+    ## Following March, survival of fawns of last year + male survival
+    Newmales[i] <- rbinom(1, Nyoungmales[i-1], survivalFawn)
+    Oldmales[i] <- rbinom(1, Nmales[i-1], survival)
+    Nmales[i] <- Oldmales[i]+Newmales[i]
+
+    ## Same for females
+    Newfemales[i] <- rbinom(1, Nyoungfemales[i-1], survivalFawn)
+    Oldfemales[i] <- rbinom(1, Nfemales[i-1], survival)
+    Nfemales[i] <- Oldfemales[i]+Newfemales[i]
+
+    ## So total population size
+    Ntot[i] <- Nmales[i]+Nfemales[i]
+
+    ## And next spring, births (same as year 1)
+    Nfemalesrepro[i] <- rbinom(1, Nfemales[i], propParticipatingFemales)
+    Nbirths[i] <- Nfemalesrepro[i]+rbinom(1,Nfemalesrepro[i],0.7)
+    Nyoungmales[i] <- rbinom(1,Nbirths[i],0.5)
+    Nyoungfemales[i] <- Nbirths[i]-Nyoungmales[i]
+}
+
+data.frame(Ntot, Old=Oldmales+Oldfemales, New=Newmales+Newfemales)
+@ 
+
+
+
+The resulting data.frame is actually stored in the dataset
+\texttt{dfPopSize} of the package:
+
+<<>>=
+dfPopSize
+@
+
+Thus, in our study, we simulated 300 individuals on the study area
+during the first year. Among these 300, 214 survived to the following
+year and 60 new animals enter the population (birth). Among the 274
+individuals present on the study area during the second year, 199
+survive to the third year et 67 animals enter the population. And so
+on.\\
+
+Using this approach, we simulate a 20\% decrease of the population
+size in 5 years. When an animal survived from one year to the next,
+the location of the centroid of its home range was kept constant. When
+a new animal appeared on the study area, its home-range centroid was
+randomly sampled within the study area (avoiding the immediate
+neighborhood of the study area boundary, to avoid the simulation of
+movements outside the study area, see our discussion of the function
+\texttt{simulateCTStudy5years} below).
+
+
+\subsection{Changes in space use}
+\label{sec:change-space-use}
+
+We simulated an increasing average home-range size of the roe deer
+with time. Indeed, the negative correlation between home-range size
+and population size has been previously observed in other roe deer
+populations \citep[e.g.][]{Kjellander2004}.\\
+
+We simulated a change in the mean home-range size of the animals using
+two approaches:\\
+
+\begin{itemize}
+\item we varied the parameter $\sigma^2$ of the mixed
+  Ornstein-Uhlenbeck process (which controls the dispersion of the
+  movements during the between-patch sequences). For a given year $t$
+  comprised between 1 and 5, the value of $\sigma^2$ for a given
+  animal was drawn from a uniform distribution bounded by 1000 $m^2$
+  and $(3 + \lfloor(t-1)\times 1.75\rfloor) \times 1000$ m$^2$ (i.e.,
+  between 1000 and 3000 m$^2$ during the first year, and between 1000
+  and 10000 m$^2$ during year 5).\\
+
+\item we also varied the list of sets of attraction points used to
+  simulate the patches. We distinguished the 19 ``small sets'' made by
+  10 attraction points or less and the 6 ``large sets'' made by more
+  than 10 attraction points. During a given year $t$, we sampled for
+  each animal a set of attraction points in a list built by the 19
+  small sets and a number of $\lfloor (t-1)\times 6/4 \rfloor$
+  randomly sampled ``large'' sets. Thus, as $t$ increases, the number
+  of ``large'' sets increases too in the sampled list.\\
+\end{itemize}
+
+We illustrate how this approach led to a change in home range size by
+comparing the home-range size (estimated by the minimum convex
+polygon) of 200 animals simulated during year 1 and year 5. WARNING!!!
+This code takes several minutes to execute. Fortunately, the resulting
+data.frame \texttt{simHRspeed} is available as a dataset in the
+package, so that the user does not need to execute this code to access
+to the result:
+
+<<eval=FALSE>>=
+## list of Patches used for year 1 and year 5
+patchesYear1 <- listPatches[sapply(listPatches,nrow)<=10]
+patchesYear5 <- listPatches
+
+## remember that the list of movement matrices contain one element per
+## value of sigma2 comprised between 1000 and 10000. Thus:
+mvtMatricesYear1 <- mvtMatrices
+mvtMatricesYear1$listMatBetween <- mvtMatricesYear1$listMatBetween[1:3]
+mvtMatricesYear5 <- mvtMatrices
+
+
+## Load adehabitatHR for home-range size estimation
+library(adehabitatHR)
+
+## Initialization
+simHRspeed <- list()
+
+## Simulation
+set.seed(777) ## for reproducibility
+
+## For each year
+for (year in c(1,5)) {
+
+    homeRangeSizey <- numeric(0) 
+    speedy <- numeric(0)
+
+    ## And for each animal
+    for (i in 1:200) {
+        cat("year", year,"animal", i,"\r")
+
+        if (year==1) {
+            lipt <- list(ptg=mvtMatricesYear1$listMatBetween[[sample(1:3,1)]],
+                         ptp=mvtMatrices$MatWithin)
+            patch <- patchesYear1
+        } else {
+            lipt <- list(ptg=mvtMatricesYear5$listMatBetween[[sample(1:10,1)]],
+                         ptp=mvtMatrices$MatWithin)
+            patch <- patchesYear5
+        }
+        
+        z <- roeDeerMovement(30, lixy=patch, verbose=FALSE, lipt=lipt)
+
+        ## Calculation of average speed
+        speedy[i] <- mean(sqrt(rowSums((z[-1,]-z[-nrow(z),])^2)))
+
+        ## Home-range size estimation if the animal had been monitored by
+        ## GPS with one relocation every 20 min
+        m <- as.integer(seq(1,nrow(z),by=60*20))
+        zb <- z[m,]
+        homeRangeSizey[i] <- mcp(SpatialPoints(zb))[[2]]
+    }
+    simHRspeed[[year]] <- data.frame(year=year, HRsize=homeRangeSizey,
+                                     speed=speedy)
+}
+
+HRspeed <- do.call(rbind, simHRspeed)
+@
+
+The resulting plot shows how the home-range size varies from year 1 to
+year 5:
+
+<<>>=
+library(ggplot2)
+ggplot(HRspeed, ggplot2::aes(y = HRsize, x = factor(year))) +
+    geom_violin(draw_quantiles = c(0.1, 0.9)) +
+    geom_boxplot(width = 0.2, fill = "grey", 
+                 outlier.shape = NA) + ylab("Home-range size (hectares)") + 
+    xlab("year")
+dvm <- round(tapply(HRspeed$HRsize, HRspeed$year, mean), 1)
+dvs <- round(tapply(HRspeed$HRsize, HRspeed$year,sd),1)
+@ 
+
+This approach leads to a mean home range size multiplied by two
+between year 1 and year 5. With the parameters described at the
+beginning of this section, the mean home-range size during year 1 is
+\Sexpr{dvm[1]} ha (SD = \Sexpr{dvs[1]} ha) and
+\Sexpr{dvm[2]} ha (SD = \Sexpr{dvs[2]} ha) during year 5.\\ 
+
+Note that the changes in space use does not only affect the home-range
+size; it also affects the average movement speed of animals:
+
+
+<<>>=
+ggplot(HRspeed, ggplot2::aes(y = speed, x = factor(year))) +
+    geom_violin(draw_quantiles = c(0.1, 0.9)) +
+    geom_boxplot(width = 0.2, fill = "grey", 
+                 outlier.shape = NA) + ylab("Mean speed (m/s)") + 
+    xlab("year")
+@ 
+
+This may be important when the population size is estimated using
+methods relying on the mean speed (e.g., random encounter models).
+
+
+\subsection{The maps required for the simulations}
+
+Several other elements are required for this simulation. As noted
+before, we simulate roe deer movements in the Chiz\'{e} study area, so
+that we need a map of the contour of the study area (this is required
+to place both animals and camera traps). The coordinates of the
+contour of this area are available in the dataset
+\texttt{contourChize}. Note that in this area, the animals home ranges
+are not randomly distributed. A larger proportion of animals is
+present in the northern part of the study area
+\citep[64\%,][]{Pettorelli2001}. We reproduced this heterogenous
+distribution of animals in our study, by placing each simulated animal
+in the northern part with a probability of 0.64. The coordinates of
+the northern and southern parts of the study area are available as
+the datasets \texttt{northChize} and \texttt{southChize}
+respectively. We show these three maps below:
+
+<<>>=
+plot(contourChize, type="n", xlab="X coordinates (Lambert II)",
+     ylab="Y coordinates (Lambert II)", main="Chize study area")
+polygon(contourChize, lwd=3)
+polygon(northChize, col="lightblue")
+polygon(southChize, col="orange")
+@ 
+
+When randomly placing camera traps over the study area, we need to
+account for the habitat type where they are located. The dataset
+\texttt{habitatMap} contains an object of the class \texttt{sf} (from
+the package of the same name) with this information.
+
+<<>>=
+library(sf)
+plot(habitatMap)
+@ 
+
+
+\subsection{The function used for the simulation}
+
+We now have all the elements required to simulate the monitoring of
+the population during 5 years by a camera trap study carried out every
+year in March. The function \texttt{simulateCTStudy5years} implements
+this procedure. It uses internally the functions described in the
+previous sections to implement the monitoring. The code below shows
+how to use this function to simulate 4 iterations of such a
+study. WARNING!!! THIS FUNCTION IS VERY SLOW!!!!! It took 40 minutes
+to carry out these 4 simulations. We provide the results of this
+simulations in the dataset \texttt{sim4iter} of the package, so that
+the user does not need to execute this command to access the result:
+
+<<eval=FALSE>>=
+sim4iter <- simulateCTStudy5years(nCT = 100, duration = 30,
+                                  niter = 4, dfPopSize,
+                                  listPatches, contourChize, contourN=northChize,
+                                  contourS=southChize,
+                                  dff=relationAnimalSigmaMaxd, habitatMap,
+                                  listptg=mvtMatrices$listMatBetween,
+                                  ptp=mvtMatrices$MatWithin, nofi = 0, backup = TRUE)
+@ 
+
+We simulate here the monitoring of the population with 100 camera
+traps during 30 days (one month). Four iterations of the 5-year study
+are carried out, and the data.frame \texttt{dfPopSize} is passed as an
+argument to indicate how the population changes over the 5 years. We
+also pass the list of sets of attraction points (for the patches), the
+different maps, the movement matrices.\\
+
+\textit{Remark}: the argument \texttt{dff} (set to the dataset
+\texttt{relationAnimalSigmaMaxd}, available in the package) is a
+data.frame containing the maximum predicted distance between the
+animal movement and its home-range centroid as a function of the
+animal id (each id corresponding to the corresponding set of
+attraction points in the argument \texttt{listPatches}) and of a value
+of $\sigma$ (where the actual value of sigma used for the OUf process
+is this value times 1000). This data.frame is used internally to
+select a centroid for each animal so that all its simulated
+relocations are located within the limits of the study area.\\
+
+We refer the reader to the help page of the function for further
+details on this function. The \texttt{print} method allows to give a
+short description of this list:
+
+<<>>=
+sim4iter
+@ 
+
+This list has three elements: the component \texttt{speed} contain the
+mean speed of the simulated animals on the study area for each
+iteration. The component \texttt{activeSpeed} contains the mean speed
+of these animals during active periods (i.e. excluding the period
+between 8:00 and 17:00 every day). Finally, the component
+\texttt{encounter} contains the main results of the study:
+
+<<>>=
+str(sim4iter$encounters,2)
+@ 
+
+This component is itself a list containing three elements: (i) a
+vector named \texttt{creationCT} with two components (the seed used by
+the random number generator to generate the position of the camera
+traps on the area, and the seed used by this generator to generate the
+position of trees -- obstacles -- in the detection zone), (ii) a
+data.frame named \texttt{indicetraps} containing the coordinates x and
+y of the camera traps, as well as the habitat type in which they fall,
+(iii) a list named \texttt{results} containing the encounter and
+association detections. This component contains the result for the
+five years of the study, each year being a list of data.frames. Each
+data.frame corresponds to the set of encounters of one animal by one
+camera trap. For example, considering the first pair of animal/camera
+trap during the first year:
+
+<<>>=
+str(sim4iter$encounters[[1]]$results[[1]][[1]])
+@ 
+
+The columns \texttt{whichani} and \texttt{whichCT} indicate
+respectively the animal and camera traps ID. Each row of this
+data.frame correspond to one encounter of the animal by the camera
+trap. This data.frame is similar to the one returned by the function
+\texttt{whenDetection} (actually it is, we just added the two columns
+\texttt{whichani} and \texttt{whichCT}).
+
+
+\section{Estimating the population size from the simulations}
+\label{sec:estim-popul-size}
+
+
+\subsection{The population size itself}
+\label{sec:popul-size-itself}
+
+The function \texttt{simulateCTStudy5years} simulates a certain number
+of 5-year camera trap studies and stores all encounters and
+associations detected by the camera traps, as well as the mean speed
+of animals during the whole period and during the active period. These
+data can then be used to estimate the population size for each year of
+the study period. Two methods are implemented in \texttt{simCTChize}:
+random encounter model \citep[REM,][]{Rowcliffe2008}, implemented in
+the function
+\texttt{estimRem} and instantaneous sampling
+\citep[IS,][]{Moeller2018}, implemented in the function
+\texttt{estimIS}.\\ 
+
+In our paper we considered six methods to estimate population size:\\
+
+\begin{itemize}
+\item \texttt{REM\_raw}: the data used for the random encounter model
+  correspond to all detected encounters. However, we do not account
+  for imperfect detection in the estimation, and we do not
+  account for the activity rythm of animals.\\
+
+\item \texttt{REM\_detect}: the data used for the random
+  encounter model correspond to all detected encounters, and we
+  estimate population size while accounting for the detection
+  probability estimated from the data.\\
+
+\item \texttt{REM\_detect\_active}: the data used for the random
+  encounter model correspond only to the detected encounters during
+  the most active periods (i.e. excepting the period comprised between
+  8:00 and 17:00), and we estimate the detection probability from these
+  data. In addition we use the mean speed of
+  animals calculated during active periods.\\
+
+\item \texttt{IS\_raw}: this approach uses the instantaneous
+  sampling approach on all the detected associations, but supposes that
+  the detection probability is equal to 1.\\
+
+\item \texttt{IS\_detect}: this approach is similar to the previous
+  one, but corrects for the imperfect detection using the estimated
+  detection probability for each trap.\\
+
+\item \texttt{IS\_detect\_active}: this approach is similar to the
+  previous one, but relies only on the data collected during active
+  periods (i.e., excluding the period comprised between 8:00 and 17:00
+  every day).
+\end{itemize}
+
+
+
+\subsubsection{Random encounter model}
+\label{sec:rand-enco-model}
+
+We first illustrate the use of \texttt{estimRem} to estimate the
+population size based on the results of
+\texttt{simulateCTStudy5years}. As an example, we estimate population
+size during the first year of the study carried out in the first
+iteration of the object \texttt{sim4iter} returned in the last
+section:
+
+<<>>=
+firstyear <- sim4iter$encounters[[1]]$results[[1]]
+str(head(firstyear,7),1)
+@ 
+
+Remember that \texttt{firstyear} is a list of data.frame, each one
+containing the set of encounters between one animal of the population
+and one camera trap. We bind the rows of the different data.frames to
+obtain a unique data.frame containing all the encounters between the
+animals of the population and the camera traps:
+
+<<>>=
+firstyeardf <- do.call(rbind, firstyear)
+str(head(firstyeardf))
+@ 
+
+To estimate population size with random encounter models, we need to
+calculate the mean speed of animals over the study area. We have this
+information in the component \texttt{speed} of the object returned by
+\texttt{simulateCTStudy5years}. Let us calculate the mean speed of the
+animals during the first year of the first iteration:
+
+<<>>=
+(dr1 <-  mean(sim4iter$speed[[1]][[1]]))
+@ 
+
+This speed is expressed in metres/second. We can calculate the same
+mean speed, but focusing only on active periods (excluding the
+monitoring between 8:00 and 17:00):
+
+
+<<>>=
+(dra1 <-  mean(sim4iter$activeSpeed[[1]][[1]]))
+@ 
+
+We can now estimate the population size on the study area from these
+data with \texttt{estimRem}. We pass as arguments the data.frame
+containing all the encounters \texttt{firstyeardf}, the mean speed
+\texttt{dr1}, the radius of the detection zone (20 metres), the angle
+of this zone (0.175 radians), as well as the duration of the study
+(30 days) and the number of traps:
+
+
+<<>>=
+(estd <- estimRem(firstyeardf, dr1, 20, 0.175, duration=30, nCT=100))
+@
+
+Remember that we simulated 300 animals on the study area during the
+first year. The population size seems underestimated
+here. Indeed, this approach does not account for imperfect
+detectability. The function \texttt{estimRem} has a parameter named
+\texttt{Pdetect} that can be used to specify a probability
+of detection of encounters during the monitoring. In an actual camera
+trap study, this probability should be estimated with a field
+study. Here, each row of the data.frame \texttt{firstyeardf}
+corresponds to an encounter between an animal and a camera trap, which
+may be either detected or not. Therefore, in the particular case of
+our simulations, we can estimate the probability of detection by
+calculating the proportion of detected encounters:
+
+<<>>=
+(pdetect <- mean(firstyeardf$detection))
+@ 
+
+We estimate again the population size accounting for this probability:
+
+<<>>=
+(estd2 <- estimRem(firstyeardf, dr1, 20, 0.175,
+                   Pdetect=pdetect, duration=30, nCT=100))
+@
+
+Finally, note that the mean speed here is underestimated, leading to
+an overestimation of the population size, as this speed
+is calculated over the whole study period, including during the day,
+when most animals are inactive. A better estimate can be obtained by
+replacing the mean speed \texttt{dr1} by the mean speed during active
+periods \texttt{dra1}, and excluding all detections that occurred
+between 8:00 and 17:00 (when most animals are inactive). We also
+indicate that our monitoring is carried out only 15 hours per day:
+
+<<>>=
+firstyeardfactive <- removeHour(firstyeardf, 8,17)
+## recalculate detection probability
+(pdetect <- mean(firstyeardfactive$detection))
+(estd3 <- estimRem(firstyeardfactive, dra1, 20, 0.175, hoursPerDay=15,
+                   Pdetect=pdetect, duration=30, nCT=100))
+@ 
+
+This leads to a better population size estimate. We can loop over all
+four iterations to estimate population size during the first year of
+each study:
+
+<<>>=
+(edr <- sapply(1:4, function(i) {
+    firstyear <- sim4iter$encounters[[i]]$results[[1]]
+    firstyeardf <- do.call(rbind, firstyear)
+    firstyeardfactive <- removeHour(firstyeardf, 8,17)
+    dra1 <-  mean(sim4iter$activeSpeed[[i]][[1]])
+    (pdetect <- mean(firstyeardfactive$detection))
+    estimRem(firstyeardfactive, dra1, 20, 0.175, hoursPerDay=15,
+             Pdetect=pdetect, duration=30, nCT=100)
+}))
+@ 
+
+The mean of these four estimates is not far from the true simulated
+value of 300 animals:
+
+<<>>=
+mean(edr)
+@ 
+
+\subsubsection{Instantaneous sampling}
+\label{sec:inst-sampl}
+
+We now illustrate how to use the function
+\texttt{estimIS} to estimate the population size using instantaneous
+sampling. As for the random encounter model, we first focus on the
+first year of the first simulation:
+
+<<>>=
+firstyeardf <- do.call(rbind, sim4iter$encounters[[1]]$results[[1]])
+@ 
+
+Instantaneous sampling requires an estimation of the probability of
+detection of associations for each trap. Be careful here: the
+probability of detection of associations is not the same as the
+probability of detection of encounters. As for the REM, in real
+studies, this mean probability of detection for each trap should be
+estimated with field studies (or alternatively, using approaches
+implying camera trap distance sampling). In our simulations, we have
+all the information required to estimate directly this mean
+probability of detection for each trap. The idea is to use the
+function \texttt{organiseCT} to map the detectability in the detection
+zone of each trap. Because this function requires the habitat type
+for each trap, we need to get this information from our
+simulations. This information is stored in the column \texttt{hab} of
+the data.frame \texttt{indicetraps} from the object returned by
+\texttt{simulateCTStudy5years} 
+
+<<>>=
+## habitat of the camera traps for the first simulation
+habitat4sim <- sim4iter$encounters[[1]]$indicetraps$hab
+str(habitat4sim)
+@ 
+
+Then, we need to simulate again the maps of surroundings of camera
+traps. This implies random elements, such as the orientation of the
+camera trap or the presence of obstacles. To reproduce the
+random environments simulated by \texttt{simulateCTStudy5years}, we
+need to set the random number generator of R to the same state as that
+used by this function. The object returned by this function includes,
+in the vector \texttt{creationCT}, the seeds used to simulate these
+environments. Therefore, we can build again a list of 100 elements
+corresponding to the raster maps of the detection zones of the
+100 camera traps:
+
+<<eval=FALSE>>=
+## Seed used for the "content" of the detection zone 
+set.seed(sim4iter$encounters[[1]]$creationCT[2])
+
+## Calculate raster maps of the 100 CT
+list100CT <- lapply(1:100, function(j) {
+    cat("Traps: ", j,"\r")
+    organiseCT(habitat4sim[j])
+})
+     
+## Calculation of the mean detectability for each trap:
+prop <- sapply(1:length(list100CT), function(trap)
+    mean(1-exp(-list100CT[[trap]]$vu)))
+@ 
+
+
+
+<<echo=FALSE>>=
+prop <- c(0.24163462239193, 0.242044244846546, 0.242806710138144, 0.242308700145054, 
+0.241819254133619, 0.00624973356465205, 0.241922261400927, 0.241983776438175, 
+0.24262452288475, 0.00534244617448404, 0.241663335075927, 0.243236253746008, 
+0.248644077179054, 0.242226896681013, 0.241659712462234, 0.241960303635675, 
+0.242002593064575, 0.244787558483388, 0.242445296304802, 0.00676876023537776, 
+0.00625215383923779, 0.241241775803697, 0.241679591202088, 0.242294145223877, 
+0.242041009542621, 0.241496607279067, 0.241147758502601, 0.00545045444294345, 
+0.241694998368429, 0.241951153190905, 0.241678974910832, 0.242077947019126, 
+0.005956877909146, 0.00475706023537133, 0.240691234726412, 0.241593763117698, 
+0.00545849574572982, 0.241616236742851, 0.231689657715438, 0.241612206188287, 
+0.00541427579831701, 0.24078846893324, 0.243466170899175, 0.240546064842461, 
+0.00584819836444851, 0.241990361941683, 0.241826871864555, 0.00414837009665397, 
+0.235456412156215, 0.00552326729715581, 0.242500217692496, 0.00411677247595756, 
+0.242182867789186, 0.241561823053323, 0.241899268955046, 0.242121963221192, 
+0.00693500351689758, 0.241801653612037, 0.240539195075374, 0.00567377077677686, 
+0.241708321263336, 0.241241775803697, 0.241813986018857, 0.240758080646597, 
+0.242089481640825, 0.241537605059818, 0.241382742717666, 0.240927795064736, 
+0.00528694583689972, 0.239158756276908, 0.241360629612083, 0.213583587163076, 
+0.237317323129574, 0.242270622046679, 0.242004779768798, 0.241604888494886, 
+0.241615353909812, 0.240974379027768, 0.00449515968971138, 0.241386232895008, 
+0.00742022486825327, 0.242699601753129, 0.242093188734102, 0.241517587455238, 
+0.24235770589451, 0.24273792414145, 0.00568599875166186, 0.241853542395015, 
+0.00475798052839473, 0.241560847632903, 0.241863348389759, 0.240621151837141, 
+0.117813191781167, 0.00583442855462709, 0.242383504228829, 0.245750031354992, 
+0.243001233240777, 0.241578005300891, 0.234048697194414, 0.246868788738045
+)
+
+@ 
+
+We can then use the function \texttt{estimIS} to estimate the
+population size using the data.frame of detected encounters
+\texttt{firstyeardf}, the radius (20 m) and angle (0.175 radians) of
+the detection zone, estimated detection probability \texttt{prop},
+the number of camera traps (100) and the duration in days of the
+monitoring (30):
+
+<<>>=
+(edi1 <- estimIS(firstyeardf, r=20, theta=0.175, detct=prop,
+                 nCT=100, duration =30))
+@ 
+
+We can improve this estimation by removing the period between 8 and 17
+hour, during which most animals are inactive:
+
+<<>>=
+firstyeardfactive <- removeHour(firstyeardf, 8, 17)
+@ 
+
+We estimate again the population size, but this time, we indicate that
+there are only 15 hours of monitoring per day:
+
+<<>>=
+(edi1 <- estimIS(firstyeardfactive, r=20, theta=0.175, detct=prop,
+                 nCT=100, duration =30, hoursPerDay=15))
+@ 
+
+As for the REM, we can loop over all the iterations in
+\texttt{sim4iter} to estimate the population size for each one:
+
+
+<<eval=FALSE>>=
+edi <- sapply(1:4, function(i) {
+    cat("Iteration:", i, "\n")
+    firstyeardf <- do.call(rbind, sim4iter$encounters[[i]]$results[[1]])
+    fyda <- removeHour(firstyeardf, 8, 17)
+
+    ## habitat
+    habitat4sim <- sim4iter$encounters[[i]]$indicetraps$hab
+    
+    ## Camera traps
+    set.seed(sim4iter$encounters[[i]]$creationCT[2])
+    list100CT <- lapply(1:100, function(j) {
+        cat("Traps: ", j,"\r")
+        organiseCT(habitat4sim[j])
+    })
+    prop <- sapply(1:length(list100CT), function(trap)
+        mean(1-exp(-list100CT[[trap]]$vu)))
+    
+    ## estimation
+    estimIS(fyda, r=20, theta=0.175, detct=prop,
+            nCT=100, duration =30, hoursPerDay=15)
+
+})
+@ 
+
+
+
+<<echo=FALSE>>=
+edi <- c(313.389353780978, 182.209577209135, 259.040407872574, 322.561688543279
+)
+@ 
+
+The results are characterized by a much larger variance than REM:
+
+<<>>=
+edi
+mean(edi)
+@ 
+
+
+
+\subsubsection{Uncertainty on the population size estimation}
+\label{sec:uncert-popul-size}
+
+Consider the data collected by a camera trap study during the first
+year of the study. As noted before, we can estimate the population
+size using \texttt{estimRem}, for example, accounting for imperfect
+detection and focusing only on active periods:
+
+<<>>=
+(estd3 <- estimRem(firstyeardf, dra1, 20, 0.175,
+                   Pdetect=pdetect, duration=30, nCT=100))
+@ 
+
+However, this is a point estimate, and there is an associated
+uncertainty to this estimate. The package \texttt{simCTChize} provides
+the function \texttt{bootstrapREM} to estimate the uncertainty on this
+estimate using a bootstrap approach (by bootstraping the camera
+traps). For example, using 1000 bootstrap samples:
+
+<<>>=
+br <- bootstrapREM(firstyeardf, Nboot=1000, dra1, 20, 0.175)
+head(br)
+@ 
+
+We can estimate the coefficient of variation of our estimation:
+
+<<>>=
+sd(br)/mean(br)
+@ 
+
+Similarly, the function \texttt{bootstrapIS} can be used to estimate
+the uncertainty on the population size estimation by instantaneous
+sampling:
+
+<<>>=
+bi <- bootstrapIS(firstyeardfactive, Nboot=1000, r=20, theta=0.175, detct=prop,
+                  hoursPerDay = 15, nCT = 100)
+sd(bi)/mean(bi)
+@ 
+
+
+\subsection{A summary of the changes in population density}
+\label{sec:summ-chang-popul}
+
+\subsubsection{Comparing two years}
+\label{sec:comparing-two-years}
+
+Now imagine that we want to compare two years, to assess whether
+population size increased or decreased between the two years. For
+example, consider the IS estimation of population size in year 1 and
+year 5, for the first iteration of our simulations:
+
+<<eval=FALSE>>=
+## Elements required for year 1
+year1df <- do.call(rbind, sim4iter$encounters[[1]]$results[[1]])
+fyda1 <- removeHour(year1df, 8, 17)
+
+## Elements required for year 5
+year5df <- do.call(rbind, sim4iter$encounters[[1]]$results[[5]])
+fyda5 <- removeHour(year5df, 8, 17)
+
+## Common elements for the two years:
+## Camera traps detection probabilities
+habitat4sim <- sim4iter$encounters[[1]]$indicetraps$hab
+set.seed(sim4iter$encounters[[1]]$creationCT[2])
+list100CT <- lapply(1:100, function(j) {
+    cat("Traps: ", j,"\r")
+    organiseCT(habitat4sim[j])
+})
+prop <- sapply(1:length(list100CT), function(trap)
+    mean(1-exp(-list100CT[[trap]]$vu)))
+
+## estimation year1
+estyear1 <- estimIS(fyda1, r=20, theta=0.175, detct=prop,
+                    nCT=100, duration =30, hoursPerDay=15)
+
+## estimation year5
+estyear5 <- estimIS(fyda5, r=20, theta=0.175, detct=prop,
+                    nCT=100, duration =30, hoursPerDay=15)
+
+## estimation CV year1
+byear1 <- bootstrapIS(fyda1, Nboot=1000, r=20, theta=0.175, detct=prop,
+                      hoursPerDay = 15, nCT = 100)
+cvyear1 <- sd(byear1)/mean(byear1)
+
+
+## estimation CV year5
+byear5 <- bootstrapIS(fyda5, Nboot=1000, r=20, theta=0.175, detct=prop,
+                      hoursPerDay = 15, nCT = 100)
+cvyear5 <- sd(byear5)/mean(byear5)
+
+@ 
+
+
+
+<<echo=FALSE>>=
+## Elements required for year 1
+year1df <- do.call(rbind, sim4iter$encounters[[1]]$results[[1]])
+fyda1 <- removeHour(year1df, 8, 17)
+
+## Elements required for year 5
+year5df <- do.call(rbind, sim4iter$encounters[[1]]$results[[5]])
+fyda5 <- removeHour(year5df, 8, 17)
+
+## Common elements for the two years:
+## Camera traps detection probabilities
+prop <- c(0.24163462239193, 0.242044244846546, 0.242806710138144, 0.242308700145054, 
+0.241819254133619, 0.00624973356465205, 0.241922261400927, 0.241983776438175, 
+0.24262452288475, 0.00534244617448404, 0.241663335075927, 0.243236253746008, 
+0.248644077179054, 0.242226896681013, 0.241659712462234, 0.241960303635675, 
+0.242002593064575, 0.244787558483388, 0.242445296304802, 0.00676876023537776, 
+0.00625215383923779, 0.241241775803697, 0.241679591202088, 0.242294145223877, 
+0.242041009542621, 0.241496607279067, 0.241147758502601, 0.00545045444294345, 
+0.241694998368429, 0.241951153190905, 0.241678974910832, 0.242077947019126, 
+0.005956877909146, 0.00475706023537133, 0.240691234726412, 0.241593763117698, 
+0.00545849574572982, 0.241616236742851, 0.231689657715438, 0.241612206188287, 
+0.00541427579831701, 0.24078846893324, 0.243466170899175, 0.240546064842461, 
+0.00584819836444851, 0.241990361941683, 0.241826871864555, 0.00414837009665397, 
+0.235456412156215, 0.00552326729715581, 0.242500217692496, 0.00411677247595756, 
+0.242182867789186, 0.241561823053323, 0.241899268955046, 0.242121963221192, 
+0.00693500351689758, 0.241801653612037, 0.240539195075374, 0.00567377077677686, 
+0.241708321263336, 0.241241775803697, 0.241813986018857, 0.240758080646597, 
+0.242089481640825, 0.241537605059818, 0.241382742717666, 0.240927795064736, 
+0.00528694583689972, 0.239158756276908, 0.241360629612083, 0.213583587163076, 
+0.237317323129574, 0.242270622046679, 0.242004779768798, 0.241604888494886, 
+0.241615353909812, 0.240974379027768, 0.00449515968971138, 0.241386232895008, 
+0.00742022486825327, 0.242699601753129, 0.242093188734102, 0.241517587455238, 
+0.24235770589451, 0.24273792414145, 0.00568599875166186, 0.241853542395015, 
+0.00475798052839473, 0.241560847632903, 0.241863348389759, 0.240621151837141, 
+0.117813191781167, 0.00583442855462709, 0.242383504228829, 0.245750031354992, 
+0.243001233240777, 0.241578005300891, 0.234048697194414, 0.246868788738045
+)
+
+## estimation year1
+estyear1 <- estimIS(fyda1, r=20, theta=0.175, detct=prop,
+                    nCT=100, duration =30, hoursPerDay=15)
+
+## estimation year5
+estyear5 <- estimIS(fyda5, r=20, theta=0.175, detct=prop,
+                    nCT=100, duration =30, hoursPerDay=15)
+
+## estimation CV year1
+byear1 <- bootstrapIS(fyda1, Nboot=1000, r=20, theta=0.175, detct=prop,
+                      hoursPerDay = 15, nCT = 100)
+cvyear1 <- sd(byear1)/mean(byear1)
+
+
+## estimation CV year5
+byear5 <- bootstrapIS(fyda5, Nboot=1000, r=20, theta=0.175, detct=prop,
+                      hoursPerDay = 15, nCT = 100)
+cvyear5 <- sd(byear5)/mean(byear5)
+
+@ 
+
+
+The resulting estimations for the two years (with their coefficients
+of variation) are:
+
+<<>>=
+## Year 1
+estyear1
+## CV year 1:
+cvyear1
+
+## Year 5
+estyear5
+## CV year 5:
+cvyear5
+@ 
+
+
+The estimated population size decreases between the two years. It is
+not clear from the coefficients of variation whether this decrease is
+significant. We can calculate the rate of change between the two
+estimates:
+
+<<>>=
+(estyear5-estyear1)/estyear1
+@ 
+
+Remember that the simulated rate of change was equal to 20\% so that
+this estimate is not very far from the truth. The function
+\texttt{bootstrapIScompar} can be used to calculate 1000 bootstrap
+replicates of this rate of change:
+
+<<>>=
+brc <- bootstrapIScompar(fyda1, fyda5, Nboot=1000, r=20, theta=0.175,
+                         detct=prop, hoursPerDay=15, 
+                         nCT=100)
+@ 
+
+We can derive a 90\% confidence interval on this rate of change:
+
+<<>>=
+quantile(brc, c(0.05,0.95))
+@ 
+
+The confidence interval on the rate of change includes 0, so that we
+are unable to conclude from these estimate that the population
+decreased between year 1 and year 5. This confirms the large
+uncertainty on this estimation.\\
+
+Note that we can similarly use \texttt{bootstrapREMcompar} to compare
+the population sizes by the REM between the two years for the first
+simulation. The population size estimates are, for year 1 and year 5:
+
+<<>>=
+## mean active speed
+dra1 <-  mean(sim4iter$activeSpeed[[1]][[1]])
+dra5 <-  mean(sim4iter$activeSpeed[[1]][[5]])
+
+(esty1 <- estimRem(fyda1, dra1, 20, 0.175,
+                   Pdetect=pdetect, duration=30,
+                   nCT=100, hoursPerDay=15))
+
+
+(esty5 <- estimRem(fyda5, dra5, 20, 0.175,
+                   Pdetect=pdetect, duration=30,
+                   nCT=100, hoursPerDay=15))
+@ 
+
+
+And the estimated rate of change is:
+
+
+<<>>=
+(esty5-esty1)/esty1
+@ 
+
+Not far from the truth. The bootstrap confidence interval on this
+estimate is:
+
+<<>>=
+
+brcr <- bootstrapREMcompar(fyda1, fyda5, Nboot=1000, dra1, dra5,
+                           r=20, theta=0.175, hoursPerDay=15,
+                           nCT=100,
+                           detection=TRUE)
+
+quantile(brcr, c(0.05,0.95))
+@ 
+
+The REM approach seems more precise: we can conclude that the
+population decreased from the REM estimates (but remember that we
+suppose here that we know exactly the mean speed of animals, which
+will never be the case in real studies).
+
+
+
+\subsubsection{A trend summary over 5 years}
+\label{sec:trend-summary-over}
+
+Our study also estimates the trend of population size over 5 years. We
+assessed this trend using the classical model:
+$$
+N_t = N_0 \mu^t
+$$
+Here, $\mu$ is a growth rate for the population, and $N_0$ is the
+population size during the first year. This rate can be estimated
+using a simple linear regression. Taking the logarithm of $N_t$ in
+this equation, we can fit the linear regression of $\log N_t$ on $t$:
+$$
+\log N_t = \log N_0 + (\log \mu)t + \epsilon_t
+$$
+where $\epsilon_t$ is a Gaussian residual. The coefficient associated
+with $t$ is $\log \mu$. Thus, based on the classical equations of
+linear regression, the growth rate can be estimated with:
+\begin{equation}
+  \label{eq:estlambda}
+\mu = \exp \left \{ \frac{\mbox{Cov}(\log N_t, t)}{\mbox{Var}(t)} \right\}
+\end{equation}
+
+Thus, considering the simulated changes in population size:
+
+<<>>=
+dfPopSize
+@ 
+
+We can estimate $\mu$:
+
+<<>>=
+exp(cov(log(dfPopSize$Ntot), 1:5)/var(1:5))
+@ 
+
+We found clearer to present $\lambda = 1-\mu$, which corresponds to the
+proportion of the population disappearing in one year, that is:
+
+<<>>=
+1-exp(cov(log(dfPopSize$Ntot), 1:5)/var(1:5))
+@ 
+
+The package \texttt{simCTChize} provides functions to estimate this
+growth rate from camera trap data, using the object returned by the
+function \texttt{simulateCTStudy5years}. The function
+\texttt{estimTrendIS} estimates the population size for each year
+using camera trap data, and then uses the equation \ref{eq:estlambda}
+on estimated population sizes to estimate $\hat{\lambda}$. We
+illustrate the process below. We consider the first simulation from
+the object \texttt{sim4iter} calculated before. We extract from this
+object the five data.frames containing the encounters detected by the
+camera traps during the five years of the study:
+
+<<>>=
+listencountersAll <- lapply(sim4iter$encounters[[1]]$results,
+                            function(x) do.call(rbind,x))
+@ 
+
+Note, as before, that it may be suitable to remove all detections that
+occurred between 8AM and 5PM, as the animals are less active at that
+time:
+
+
+<<>>=
+listencounters <- lapply(listencountersAll, function(x)
+                         removeHour(x, 8, 17))
+@ 
+
+
+
+We again calculate the mean detection probability for each trap:
+
+<<eval=FALSE>>=
+## Common elements for the five years:
+## Camera traps detection probabilities
+habitat4sim <- sim4iter$encounters[[1]]$indicetraps$hab
+set.seed(sim4iter$encounters[[1]]$creationCT[2])
+list100CT <- lapply(1:100, function(j) {
+    cat("Traps: ", j,"\r")
+    organiseCT(habitat4sim[j])
+})
+prop <- sapply(1:length(list100CT), function(trap)
+    mean(1-exp(-list100CT[[trap]]$vu)))
+@ 
+
+The vector \texttt{prop} contains the mean detection probability for
+each trap. We can use the function \texttt{estimTrendIS} to estimate
+the detection:
+
+<<>>=
+(tr <- estimTrendIS(listencounters, r=20, theta=0.175, detct=prop,
+                    hoursPerDay=15))
+@ 
+
+This function returns the population size estimate for each year as
+well as the estimate of $\lambda$. Here, we estimate a decrease of
+9.28\% per year. The function \texttt{bootstrapTrendIS} can be used to
+calculate the same vector for \texttt{Nboot} = 1000 bootstrap samples:
+
+<<eval=FALSE>>=
+set.seed(777) ## for reproducibility
+
+bos <- bootstrapTrendIS(listencounters, r=20, theta=0.175, detct=prop,
+                        hoursPerDay=15)
+@ 
+
+
+<<echo=FALSE>>=
+bos <- structure(c(277.742506633634, 281.591575099333, 278.250051230315, 
+305.305555698905, 347.342318858646, 250.398036544113, 256.120416845068, 
+264.349156966294, 314.366046320109, 290.64935219225, 393.068134648743, 
+244.2739820423, 256.170154742235, 287.567821019956, 223.87767496715, 
+145.370178548783, 184.971239877861, 215.047909525751, 214.094511312328, 
+271.340994796892, 229.265179373546, 194.821773338296, 166.106477572835, 
+161.108529154087, 222.281166238225, 349.125929632313, 302.166264567798, 
+234.962079642861, 279.534211671766, 321.767885516748, -0.0605618415098449, 
+0.0466614720168073, -0.0149633461140082, -0.0882423260416602, 
+-0.121529207026278, 0.0085710256937428), dim = c(6L, 6L),
+dimnames = list(
+                                                              NULL, c("N[1]", "N[2]", "N[3]", "N[4]", "N[5]", "lambda")))
+qutis <- structure(c(237.535094379687, 388.26108399264, 232.258397994517, 
+426.690419307489, 146.10525090933, 270.830802486229, 143.32460498359, 
+276.361504482177, 154.048424467334, 341.560884548941, -0.188478907125781, 
+0.00816913277400306), dim = c(2L, 6L), dimnames = list(c("5%", 
+"95%"), c("N[1]", "N[2]", "N[3]", "N[4]", "N[5]", "lambda")))
+
+@ 
+
+The result is a matrix with as many rows as bootstrap samples:
+
+<<>>=
+head(bos)
+@ 
+
+So that a 90\% confidence interval can simply be calculated with:
+
+<<eval=FALSE>>=
+qutis <- apply(bos,2,quantile, c(0.05, 0.95))
+@ 
+
+Which is equal to:
+
+<<>>=
+qutis
+@ 
+
+We have one confidence interval for each population size estimate, as
+well as for the trend $\lambda$.\\
+
+We can similarly use the function \texttt{estimTrendRem} to estimate
+the trend using the random encounter model. We first need to calculate
+the mean speed for each year (remember that we are interested here in
+active periods):
+
+<<>>=     
+vectorSpeed <- sapply(sim4iter$activeSpeed[[1]], mean)
+vectorSpeed
+@ 
+
+Then we use the function \texttt{estimTrendRem}:
+
+<<>>=
+estimTrendRem(listencounters, vectorSpeed, r=20, theta=0.175,
+              hoursPerDay=15,
+              Pdetect=mean(do.call(rbind,listencounters)$detection))
+@ 
+
+And we can use the function \texttt{bootstrapTrendRem} to estimate
+confidence intervals:
+
+<<eval=FALSE>>=
+set.seed(777)
+bosr <- bootstrapTrendRem(listencounters, vectorSpeed, r=20,
+                          theta=0.175, 
+                          hoursPerDay=15,
+                          Pdetect=mean(do.call(rbind,listencounters)$detection))
+citr <- apply(bosr,2,quantile,c(0.05,0.95))
+@ 
+
+<<echo=FALSE>>=
+citr <- structure(c(229.189612195185, 356.70237825287, 196.660220336355, 
+350.015057459868, 165.857184243103, 299.620880840938, 166.038554553337, 
+309.209523749029, 151.665010868315, 282.704760530997, -0.155953026304002, 
+0.0100588597009978), dim = c(2L, 6L), dimnames = list(c("5%", 
+"95%"), c("N[1]", "N[2]", "N[3]", "N[4]", "N[5]", "lambda")))
+@
+
+Which gives:
+
+<<>>=
+citr
+@ 
+
+
+\subsection{A summary}
+\label{sec:summary}
+
+The function \texttt{processCTStudy} provides a summary of the
+population size estimates and trends obtained by IS or REM for each
+simulation. The help page of this function describes how to use this
+function. We illustrate it in this section. For example, consider the
+object \texttt{sim4iter} generated by the function
+\texttt{simulateCTStudy5years}. We can estimate the population size
+and trend for each iteration using the random encounter model,
+accounting for imperfect detectability, and focusing only on active
+periods:
+
+<<eval=FALSE>>=
+pro <- processCTStudy(sim4iter, method="REM",
+                      detectability=TRUE, active=TRUE)
+@ 
+
+
+<<echo=FALSE>>=
+pro <- list(structure(list(PtEst = c(291.6958700666, 272.113529363365, 
+228.189246943455, 232.845259041381, 215.989859835811, -0.0728876999640709, 
+-0.259537477213866), EstSE = c(40.4322017582373, 46.1726487695667, 
+39.7705597896134, 41.8257472970153, 37.7453809837556, 0.0509589599734693, 
+0.133314681480731), EstCIl = c(227.481107813367, 203.041643812575, 
+163.092314533205, 168.700559580945, 156.356593889339, -0.157967373683628, 
+-0.526702345973477), EstCIu = c(359.244299406308, 357.199175712971, 
+296.786014429524, 306.002288776007, 277.954163887068, 0.0145953709147772, 
+-0.103042769585941)), class = "data.frame", row.names = c("N1", 
+"N2", "N3", "N4", "N5", "lambda", "changeRate")), structure(list(
+    PtEst = c(242.961991627424, 314.033037856735, 270.365326645342, 
+    242.345457281065, 180.555375868244, -0.0817511962608412, 
+    -0.256857524673565), EstSE = c(40.8900244579959, 56.9311705351532, 
+    42.8706327069699, 37.1127543248915, 29.2447707612931, 0.0441424529600008, 
+    0.137068202191315), EstCIl = c(182.183050367462, 227.009237205818, 
+    205.324611273114, 184.947848977655, 137.259478785045, -0.154282402547535, 
+    -0.481659603746628), EstCIu = c(317.542096652297, 414.674518295718, 
+    349.434431607659, 302.670923381771, 231.329897987406, -0.00788898738027996, 
+    -0.0317430006758246)), class = "data.frame", row.names = c("N1", 
+"N2", "N3", "N4", "N5", "lambda", "changeRate")), structure(list(
+    PtEst = c(336.487271285668, 270.752797753506, 230.474227647653, 
+    233.619875049223, 265.2364394057, -0.0604355130850734, -0.211748966336019
+    ), EstSE = c(61.1206758828635, 49.2523732159654, 38.9096980051464, 
+    47.458978860263, 53.4623839891058, 0.0479775668283885, 0.174129841366384
+    ), EstCIl = c(240.064222818003, 194.712428676827, 169.10957260834, 
+    157.836643102057, 184.534891425233, -0.135917629502052, -0.458734705672633
+    ), EstCIu = c(439.673882995255, 352.295307018451, 293.337321937926, 
+    311.280977926621, 356.938577038938, 0.0175244250106354, 0.113703605159715
+    )), class = "data.frame", row.names = c("N1", "N2", "N3", 
+"N4", "N5", "lambda", "changeRate")), structure(list(PtEst = c(414.767689989144, 
+302.924481036879, 337.475304616524, 230.13749944634, 192.650790145759, 
+-0.165438248035812, -0.535521221166478), EstSE = c(73.7306689800021, 
+52.5054234674358, 64.9532892150813, 52.7983052330569, 44.4165005847991, 
+0.0568849261471192, 0.189066979764751), EstCIl = c(301.555665426351, 
+219.426066392098, 229.384192379936, 147.287999645658, 121.377054597328, 
+-0.266075014937626, -0.594004948012917), EstCIu = c(537.293976572786, 
+390.35508846435, 445.607673002821, 320.658249228568, 266.782531921627, 
+-0.0773965554491518, 0.0137405588545651)), class = "data.frame", row.names = c("N1", 
+"N2", "N3", "N4", "N5", "lambda", "changeRate")))
+@ 
+
+Which gives:
+
+<<>>=
+pro
+@ 
+
+For each simulation, this function returns the point estimate and 90\%
+confidence interval on the population size estimate for each year (N1
+to N5), on the trend $\lambda$, and on the rate of change between the
+first year $N_1$ and the last year $N_5$, i.e. $(N_5-N_1)/N_1$.\\
+
+Using a suitable parameterization, the function
+\texttt{processCTStudy} can be used to summarize the estimates
+obtained for any of the 6 methods considered in our paper (see section
+\ref{sec:popul-size-itself}). To make things simpler, we provide a
+function \texttt{process\_all} implementing all these 6 methods (see
+next section for an example of use).
+
+
+\section{The main simulations carried out in the paper}
+
+\subsection{Monitoring of the roe deer during five years: no habitat
+  selection and random sampling of traps)}
+
+\subsubsection{Using 100 traps}
+\label{sec:roe1}
+
+The first set of simulations was carried out to compare random
+encounter models and instantaneous sampling on 1000 simulations of a
+five-year study. These simulations can be easily carried out using the
+function \texttt{simulateCTStudy5years}. WARNING: THIS CALCULATION
+TAKES A VERY LONG TIME!!!! (see below):
+
+<<eval=FALSE>>=
+simrd5nohs <- simulateCTStudy5years(nCT = 100, duration = 30,
+                                    niter = 1000, dfPopSize,
+                                    listPatches, contourChize, contourN=northChize,
+                                    contourS=southChize,
+                                    dff=relationAnimalSigmaMaxd, habitatMap,
+                                    listptg=mvtMatrices$listMatBetween,
+                                    ptp=mvtMatrices$MatWithin, nofi = 0, backup = TRUE)
+@ 
+
+We did not include the result of these simulations in the package, as
+the resulting object size was too large to fit in a R package (2.5
+Gb), though it is of course available from the authors upon
+request. Note that, in practice, we did not exactly use this R code to
+simulate the 1000 studies; we used this code with \texttt{niter=100}
+in 10 parallel sessions on a workstation, which took 4 days of
+calculation. We then combined our results together using the function
+\texttt{c.simCT} (see the help page of this function) into an object
+\texttt{simrd5nohs}. Then, for each simulation, we estimated, using
+the six methods described in section \ref{sec:popul-size-itself}, the
+population size for each year, the variation rate between year 1 and
+year 5 and the trend $\lambda$ (together with their 90\% bootstrap
+confidence interval). We use the function \texttt{process\_all}
+(again, recall that this code will not work since the main object
+\texttt{simrd5nohs} is not available in the package. This code is
+provided only for information purposes):
+
+
+<<eval=FALSE>>=
+roeNoHS <- process_all(simrd5nohs)
+@ 
+
+The reader can test this code by replacing \texttt{simrd5nohs} by the
+dataset \texttt{sim4iter} containing only 4 simulations (but they
+should be warned that even in this case, this code is rather
+slow). Anyway, the resulting object \texttt{roeNoHS} is available as a
+dataset of the package for the 1000 simulations:
+
+<<>>=
+str(roeNoHS,1)
+@ 
+
+We can then build the table summarizing the main results of these
+simulations. The function \texttt{present\_results\_CT} from the
+package can be used:
+
+<<>>=
+oldopt <- options(width = 100) ## to allow a cleaner display of the results
+
+present_results_CT(roeNoHS, dfPopSize)
+
+options(oldopt)
+@ 
+
+In this table, for each method and each parameter of interest
+(population size of year 1 \texttt{N1} and 5 \texttt{N5}, trend
+$\lambda$ \texttt{lam} and change rate \texttt{CR}), we present the
+true value of the parameter, the mean of the point estimate calculated
+over the 1000 simulations (\texttt{MeanEst}), their standard deviation
+\texttt{SE}, the mean value of standard deviation estimated by
+bootstrap (\texttt{SEEst}), the coverage probability of the 90\%
+confidence interval estimated by bootstrap (probability that the true
+value is in the confidence interval, \texttt{Pcov}), and for the trend
+$\lambda$ and the rate of change, the probability that the parameter
+is negative (\texttt{PDec}, that is, the probability that the point
+estimate indicates a population decrease) and the probability that
+this decrease is significant (\texttt{PsigD}, that is, the probability
+that the upper limit of the confidence interval on the parameter is
+negative). These results are discussed in the paper.
+
+
+
+\subsubsection{Using 25 traps}
+\label{sec:using-25-traps}
+
+We then use the function \texttt{sampleCTs} to subsample the number of
+camera traps (i.e. keep only the encounter detections that occurred in
+the first 25 simulated traps for each simulation). Here too, this
+calculation will not work on the user's computer, as the dataset
+\texttt{simrd5nohsrd} is not available in the package. This code is
+provided only for information purpose:
+
+<<eval=FALSE>>=
+simrd5nohs25 <- sampleCts(simrd5nohs, 25)
+@ 
+
+And we use again the function \texttt{process\_all} provided in the
+package to calculate the population size and trends estimates for each
+one (this code is also provided for information purpose. However the
+resulting object \texttt{roeNoHS25} is available in the package as a
+dataset):
+
+<<eval=FALSE>>=
+roeNoHS25 <- process_all(simrd5nohs25)
+@ 
+
+And finally, we use the function \texttt{present\_results\_CT} from
+the package to summarize the study with only 25 traps:
+
+<<>>=
+oldopt <- options(width = 100)
+
+present_results_CT(roeNoHS25, dfPopSize)
+
+options(oldopt)
+@ 
+
+
+\subsection{Monitoring of the roe deer during five years: selection of
+  paths and traps preferentially placed on paths}
+
+\subsubsection{Simulated habitat selection process}
+\label{sec:simul-habit-select}
+
+We also examined the effect on the estimates of the common practice
+consisting in placing camera traps only in ``good'' habitats. This
+practice is generally used when the aim is not to estimate the
+population size, but rather to provide an index of its changes with
+time. We simulated habitat selection in the roe deer, and we placed
+all the 100 traps in the habitat selected by the roe deer to assess
+how this practice affects the trend estimates.\\
+
+Roe deer is known to be a species selecting ecotones. We simplified
+this behaviour and simulated a selection of paths neighborhood
+(defined here as the area located at less than 20 m from a path) in
+our study area. The sf object \texttt{pathsMap} contains the map of
+these paths:
+
+<<>>=
+plot(pathsMap)
+@ 
+
+We simulated habitat selection using the following approach. For a
+given roe deer, we first sampled the location of a centroid for the
+home-range. As previously, this centroid is sampled in the northern or
+southern part of the study area, with respective probability 193/300
+and 1-193/300 (to simulate the difference in population densities
+between these two parts of the study area). We selected the centroid
+so that: (i) it was located within 20 m from the paths (within the
+``paths neighborhood''), (ii) it was located at more than 600 m from
+the study area boundary (so that the movements of the animal around
+this center do not lead the animal outside the study area).  Then a
+random number of patches (uniform between 3 and 10) are selected
+within a random distance from this centroid (this distance is drawn
+randomly from a uniform distribution bounded by 100 m and 300 m),
+making sure that all these patches centers are located in the areas at
+less than 20 m from the paths. These patches are used as center of
+attractions in the function \texttt{roeDeerMovement}.  This habitat
+selection is simulated by the R function \texttt{HSlocation} from the
+package. We illustrate this process, also using different R objects
+provided in the package: \texttt{contourChize} contains the
+coordinates of the boundary of the study area, \texttt{pathsBuffer}
+contains a 20-m buffer from the paths:
+
+<<>>=
+## Chize map
+chizeMap <- sf::st_sfc(sf::st_polygon(list(as.matrix(contourChize))))
+
+## Erode this map by 600 m
+erodedMap <- sf::st_buffer(chizeMap, -600)
+
+## Intersects with areas located < 20 m from paths
+sf::st_crs(pathsBuffer) <- sf::st_crs(erodedMap)
+corePaths <- sf::st_intersection(st_geometry(pathsBuffer),
+                                 st_geometry(erodedMap))
+
+## Plot the result
+plot(sf::st_geometry(chizeMap), col="grey")
+plot(corePaths, col="red", add=TRUE)
+
+## A random centroid will be randomly drawn from the maps in
+## corePaths and patches will be drawn from pathsBuffer
+set.seed(777) ## for reproducibility
+(locs <- HSlocation(corePaths, pathsBuffer))
+
+
+## add these points on the map:
+points(sweep(locs$patchs, 2, locs$centroide, "+"), pch=21,
+       bg="yellow")
+points(locs$centroide[1], locs$centroide[2], pch=3, cex=2, lwd=4, col="blue")
+points(locs$centroide[1], locs$centroide[2], pch=3, cex=2, lwd=2, col="green")
+@
+
+The grey area corresponds to the Chize Study Area. The red areas
+correspond to the areas located at a distance greater than 600 m from
+the boundary of this study area and at less than 20 m from a path. The
+green cross corresponds to the simulated centroid for the roe deer and
+the yellow points correspond to the simulated centres of attraction
+for the roe deer movements.\\
+
+We can then use the function \texttt{roeDeerMovement} as before to
+simulate the movements of the animals based on these attraction
+points. As all attraction points are located in the paths
+neighborhood, this habitat type will appear as selected by the
+animals. 
+
+
+\subsubsection{Simulation}
+\label{sec:simulation}
+
+The function \texttt{simulateCTStudy5years} can be used to simulate a
+camera trap monitoring of the roe deer population, with a habitat
+selection by the animals (this is controlled by the parameter
+\texttt{habitatSelection = TRUE}). We then placed all the 100 traps on
+the paths for the monitoring (this is controlled by the parameter
+\texttt{propPaths = 1}). We used the following code. WARNING: THIS
+CALCULATION TAKES A VERY LONG TIME!!!! To limit the computation time,
+we only simulated 500 times this study:
+
+<<eval=FALSE>>=
+simrd5withhs <- simulateCTStudy5years(nCT = 100, duration = 30,
+                                      niter = 500, dfPopSize, 
+                                      listPatches, contourChize, contourN=northChize,
+                                      contourS=southChize,
+                                      dff=relationAnimalSigmaMaxd, habitatMap,
+                                      listptg=mvtMatrices$listMatBetween,
+                                      ptp=mvtMatrices$MatWithin, stratSampling=TRUE,
+                                      propPaths=1, pathsMap=pathsMap,
+                                      pathsBuffer=pathsBuffer, offPathsMap=offPathsMap,
+                                      offPathsBuffer=offPathsBuffer,
+                                      habitatSelection=TRUE,
+                                      nofi = 0, backup = TRUE)
+@ 
+
+As before, we did not include the result of these simulations in the
+package, as the resulting object size was too large to fit in a R
+package (1.7 Gb), though it is of course available from the authors
+upon request. Then, for each simulation, we estimated, using each
+possible assessed method, the trend $\lambda$ (together its 90\%
+bootstrap confidence interval). The 6 assessed methods were the six
+methods described in section \ref{sec:popul-size-itself}. We used the
+code below. Note that this code will not work on the readers'
+computer, as the main object \texttt{simrd5withhs} is not available in
+the package. This code is provided for information purposes. Note also
+that the resulting list \texttt{roeHSBiasedSam} is available as a
+dataset in the package:
+
+<<eval=FALSE>>=
+## we use the function compute_all written above:
+roeHSBiasedSam <- process_all(simrdwithhs)
+@ 
+
+We can then format the results:
+
+<<>>=
+trend1 <- exp(coef(lm(log(dfPopSize[,1])~c(1:5)))[2])-1
+nam <- c("REM_raw","REM_det","REM_det_act",
+         "IS_raw","IS_det","IS_det_act")
+sel <- 6
+
+oldopt <- options(width = 100)
+
+do.call(rbind,lapply(1:length(roeHSBiasedSam), function(i) {
+    x <- roeHSBiasedSam[[i]]
+    method <- nam[i]
+    MeanEst <- mean(sapply(x, function(y) y[sel,1]), na.rm=TRUE)
+    SE <- sd(sapply(x, function(y) y[sel,1]), na.rm=TRUE)
+    SEEst <- mean(sapply(x, function(y) y[sel,2]), na.rm=TRUE)
+    SE.SEEst <- sd(sapply(x, function(y) y[sel,2]), na.rm=TRUE)
+    pcover <- mean(sapply(x, function(y)
+        trend1>=y[sel,3]&trend1<=y[sel,4]))
+    
+    Psigla <- mean(sapply(x, function(y) y[6,4]<0))
+    PDecla <- mean(sapply(x, function(y) y[6,1]<0))
+    
+    data.frame(method=method,
+               MeanEst=round(MeanEst,3),
+               SE=round(SE,3),
+               SEEst=round(SEEst,3), SE.SEEst=round(SE.SEEst,3), Pcov=round(pcover,3),
+               PDec=round(PDecla,3),
+               PsigD=round(Psigla,3))
+}))
+
+options(oldopt)
+@
+
+These results are also discussed in the paper.
+
+
+
+\subsubsection{Proportion of the time spent near the paths}
+
+
+In these simulations, we supposed that the mean home-range size of
+animals increased with time. Therefore, the dispersion of the
+movements around attraction points was larger in year 5 than in year
+1. As attraction points were located in the neighborhood of paths
+(within 20 m from the paths), this implies that the animals spent less
+time in this habitat type in year 5 than in year 1. Even if the number
+of animals on the area had been constant during the five-year period,
+the mean number of animals present within 20 m from the paths at any
+moment would have decreased with time.\\
+
+We illustrate this idea using simulations: we simulated the home range
+of 1000 animals selecting the neighborhood of paths during the 5 years
+(while increasing their home-range size in the same way as in our
+previous simulations), to assess how the proportion of the time that
+the animals spent in this selected habitat changed with time. WARNING:
+this calculation is long! The resulting object
+\texttt{propTimePathsHS} is available as a dataset in the package (see
+below):
+
+<<eval=FALSE>>=
+## Number of simulated animals
+ntotani <- 1000
+
+
+## Required for the simulation: the centroid of animals is located at
+## at least 600 m from the boundary of the study area (to avoid
+## movement outside the study area).
+cartec <- sf::st_sfc(sf::st_polygon(list(as.matrix(contourChize))))
+sf::st_crs(cartec) <- sf::st_crs(pathsBuffer)
+cartec <- sf::st_buffer(cartec, -600)
+
+## We then intersected the map of the paths neighborhood with this
+## "eroded map"
+corePaths <- sf::st_intersection(pathsBuffer, cartec)
+po1 <- sf::st_sfc(sf::st_polygon(list(as.matrix(northChize))))
+sf::st_crs(po1) <- sf::st_crs(corePaths)
+
+## Because 193/300 animals were located in the northern part, we
+## intersected this paths map with the limits of the north an south
+## of Chize
+northPaths <- sf::st_intersection(corePaths, po1)
+po1 <- sf::st_sfc(sf::st_polygon(list(as.matrix(southChize))))
+sf::st_crs(po1) <- sf::st_crs(corePaths)
+southPaths <- sf::st_intersection(corePaths, po1)
+
+## Parameters of movement to simulate the increase in home range size
+## (through the use of sigma) and the habitat selection (through
+## HSlocation)
+paramani <- lapply(1:ntotani, function(i) {
+    cat(i,"\r")
+    north <- (runif(1) < 193/300)
+    minsigan <- round(4 * (1:5)/5)
+    maxsigan <- round(3 + 7 * (0:4)/4)
+    sigmaan <- sapply(1:5, function(t) sample(minsigan[t]:maxsigan[t], 
+                                              1))
+    zone <- southPaths
+    if (north) 
+        zone <- northPaths
+    lxyz <- HSlocation(zone, pathsBuffer)
+    return(list(lxyz = lxyz, sigmaan = sigmaan))
+})
+
+## Simulation of the movements of the 1000 animals +
+## calculation of the proportion of relocations in paths neighborhood.
+propTimePathsHS <- matrix(0, nrow=1000, ncol=5)
+for (iAni in 1:ntotani) {
+    cat(iAni,"\r")
+    for (year in 1:5) {
+
+        ## Simulate the movement
+        paAni <- paramani[[iAni]]
+        lipt <- list(ptg=mvtMatrices$listMatBetween[[paAni$sigmaan[year]]],
+                     ptp=mvtMatrices$MatWithin)
+        lixyt <- list(paAni$lxyz$patchs, paAni$lxyz$patchs)
+        z <- roeDeerMovement(30, lixyt, lipt = lipt, 
+                             verbose = FALSE)
+        z <- t(t(z)+as.vector(paAni$lxyz$centroide))
+
+        ## To speed up the calculation, consider one reloc every 1000
+        ## seconds
+        z <- z[seq(1,nrow(z), by=1000),]
+
+        ## Join with the map of paths Buffer, and calculate the proportion of
+        ## relocations that are in this habitat type
+        z <- as.data.frame(z)
+        jo <- st_join(st_as_sf(z,coords=c("x","y"), crs=st_crs(pathsBuffer)),
+                      pathsBuffer)
+        propTimePathsHS[iAni, year] <- mean(!is.na(jo$id))
+    }
+}
+
+@ 
+
+
+Using this object \texttt{propTimePathsHS}, we can calculate the mean
+percentage of time spent by the animals in the neighborhood of the
+paths (+/- SE):
+
+<<>>=
+moa <- 100*apply(propTimePathsHS,2,mean)
+soa <- 100*apply(propTimePathsHS,2,mean)/sqrt(1000)
+
+plot(1:5, moa, ylim=range(c(moa+soa, moa-soa)),
+     xlab="Year",ylab="Percentage of time in paths neighborhood",
+     ty="b")
+arrows(1:5, moa-soa, 1:5, moa+soa, angle=90,
+       length=0.05, code=3)
+@ 
+
+
+For each simulated animal $r$, we calculated the 
+proportion $p_t^{(r)}$ of the time spent close to a path during year
+$t$. The mean proportion spent by the 1000 animals in this habitat
+type is classically estimated with:
+$$
+\overline{p_t} = \frac{1}{1000} \sum_{r=1}^{1000} p_t^{(r)}
+$$
+With classically, a standard error equal to:
+$$
+\mbox{SE}(\overline{p_t}) = \sqrt{\frac{\mbox{Var}(p_t^{(r)})}{1000}}
+$$
+Moreover, in our study simulating a population of $N_t$ animals over
+five years, there are in average
+$\hat{H}_t = N_t \times \overline{p_t}$ animals present in this
+habitat type at a given time of the year $t$. We can use these
+simulations of 1000 animals during 5 years to estimate the rate of
+decrease $\mu'$ with time of the number of animals present in this
+habitat type using a linear regression:
+\begin{equation}
+  \label{eq:erl11}
+  \log \hat{H}_t = a + (\log \mu')\times t + e_t
+\end{equation}
+with $e_t$ a residual with zero mean. Note that the variance of
+$\log (\hat{H}_t)$ -- and therefore of $e_t$ -- is not constant (see
+previous figure). We can account for this heteroskedasticity by
+weighing the linear regression by:
+$$
+w_t = 1 / \mbox{Var}(\log \hat{H}_t)
+$$
+Note that,
+$\mbox{Var}(\log \hat{H}_t) = \mbox{Var}(\log N_t + \log
+\overline{p_t}) = \mbox{Var}(\log \overline{p_t})$ (because
+$\mbox{Var}(\log N_t) = 0$ since $N_t$ is known).  Using the
+delta-method, we can show that:
+$$
+\mbox{Var}(\log \overline{p_t}) \approx
+\frac{\mbox{Var}(\overline{p_t})}{\overline{p_t}^2}
+$$
+And $\mbox{Var}(\overline{p_t})$ can be estimated from the data
+simulated above. We can therefore estimate $\lambda' = 1-\exp{\mu'}$
+expected for the number of animals in paths neighborhood using
+equation \ref{eq:erl11}, weighting each year with
+$1/\mbox{Var}(\log \overline{p_t})$:
+
+<<>>=
+## moa and soa as a proportion
+moap <- moa/100
+soap <- soa/100
+
+## Real number in each habitat type
+ht <- c(300,274,266,246,239)*moap
+## variance of \bar{ht}
+voa <- soap^2
+
+## variance of log(ht) with the delta-method
+vh <- voa/(moap^2)
+    
+## Weighted regression
+su <- summary(lm(log(ht)~c(1:5), weight=1/vh))
+cothb <- exp(round(su$coefficients[2,1],2))-1
+## standard error
+scothb <- round(sqrt(((su$coefficients[2,2])^2)*
+                     exp(2*exp(round(su$coefficients[2,1],2)))),2)
+
+
+## slope:
+cothb
+
+## standard error
+scothb
+@ 
+
+With this regression, we estimate $\lambda$ = \Sexpr{round(cothb,3)}
+(SE = \Sexpr{scothb}), which corresponds roughly to the value we
+estimated by placing all the traps in paths neighborhood.
+
+
+\subsection{Habitat selection and stratification}
+
+\subsubsection{Implementing stratification in the simulated
+  monitoring}
+\label{sec:impl-strat-simul}
+
+In this section, we also simulated a roe deer population during five
+years where animals preferentially use the neighborhood of paths, but
+we tried to use a stratified sampling of the traps and a corresponding
+estimator to obtain an unbiased estimation. We placed a proportion $p$
+of the traps in the selected habitat and monitored the population for
+five years. Then, we estimated the population size for each year (by
+estimating the population size in each habitat -- close to paths and
+far from paths -- separately and by summing the two estimates). We
+simulated this study for the following values of $p$: 0.25, 0.5,
+0.75. We used the following code. WARNING: THIS CALCULATION TAKES A
+VERY LONG TIME!!!! Since this calculation was very long, we only
+simulated 500 times this study for each value of $p$:
+
+<<eval=FALSE>>=
+listSimulated <- list()
+propsim <- c(0.25,0.5,0.75)
+
+for (i in 1:3) {
+    listSimulated[[i]] <- simulateCTStudy5years(nCT = 100, duration = 30,
+                                                niter = 500, dfPopSize, 
+                                                listPatches, contourChize,
+                                                contourN=northChize,
+                                                contourS=southChize,
+                                                dff=relationAnimalSigmaMaxd,
+                                                habitatMap=habitatMap,
+                                                listptg=mvtMatrices$listMatBetween,
+                                                ptp=mvtMatrices$MatWithin,
+                                                stratSampling=TRUE,
+                                                propPaths=propsim[i],
+                                                pathsMap=pathsMap,
+                                                pathsBuffer=pathsBuffer,
+                                                offPathsMap=offPathsMap,
+                                                offPathsBuffer=offPathsBuffer,
+                                                habitatSelection=TRUE,
+                                                nofi = 0, backup = TRUE)
+}
+
+@ 
+
+As before, we did not include the result of these simulations in the
+package, as the resulting object size was too large to fit in a R
+package (6.6 Gb), though it is available from the authors upon
+request. Then, for each simulation, we estimated, using each possible
+assessed method, the trend $\lambda$ (together its 90\% bootstrap
+confidence interval). The 6 assessed methods were the six methods
+described in section \ref{sec:popul-size-itself}. We used the code
+below. Note that this code will not work on the readers' computer, as
+the main object \texttt{listSimulated} is not available in the
+package. This code is provided for information purposes. Note also
+that the resulting list \texttt{roeStratSam} is available as a dataset
+in the package:
+
+
+<<eval=FALSE>>=
+roeStratSam <- lapply(listSimulated, function(x) {
+    process_all(x,stratified=TRUE, pathsBuffer=pathsBuffer)
+})
+@ 
+
+Consider the population size the first year (in theory equal to
+300). We can consider how the six methods estimate this parameter, for
+each proportion of traps in the selected habitat type:
+
+<<>>=
+oldopt <- options(width = 100)
+do.call(rbind,
+        lapply(1:3,
+               function(i) {
+                  
+            df1 <- do.call(rbind,
+                           lapply(1:6,
+                                  function(j) {
+                               data.frame(
+                                   p = c(0.25, 0.5, 0.75)[i],
+                                   Esp.Dech=round(mean(sapply(roeStratSam[[i]][[j]],
+                                                              function(x) x[1,1])),1),
+                                   SE.Dech=round(sd(sapply(roeStratSam[[i]][[j]],
+                                                           function(x) x[1,1])),1),
+                                   Couv.IC=round(mean(sapply(roeStratSam[[i]][[j]],
+                                                             function(x)
+                                   (x[1,3]<300)&(x[1,4]>300))),3),
+                                   Estim.SE=round(mean(sapply(roeStratSam[[i]][[j]],
+                                                              function(x) x[1,2]),
+                                                       na.rm=TRUE),1),
+                                   SE.Estim.SE=round(sd(sapply(roeStratSam[[i]][[j]],
+                                                               function(x) x[1,2]),
+                                                        na.rm=TRUE),1)
+                               )
+                           }))
+            df1$Method <- c("REM_raw","REM_det","REM_det_act",
+                            "IS_raw","IS_det","IS_det_act")
+            df1 <- df1[,c(1,7,2:6)]
+            if (i==3)
+                return(df1)
+            return(rbind(df1,
+                         data.frame(p="",Method="",Esp.Dech="",SE.Dech="",
+                                    Couv.IC="",Estim.SE="",SE.Estim.SE="")))
+            
+        }))
+options(oldopt)
+@ 
+
+
+Note that the precision of the population size estimates is not
+strongly affected by the the level of allocation in the stratified
+sample. The estimated precision for stratified sample was comparable
+to the precision estimated without stratification, though slightly
+better.\\
+
+We can similarly estimate the trend $\lambda$ for each method and each
+proportion of traps in paths neighborhood:
+
+
+<<>>=
+oldopt <- options(width = 100)
+do.call(rbind,
+        lapply(1:3,
+               function(i) {
+                  
+            df1 <- do.call(rbind,
+                           lapply(1:6,
+                                  function(j) {
+                               data.frame(
+                                   p = c(0.25, 0.5, 0.75)[i],
+                                   Esp.Dech=round(mean(sapply(roeStratSam[[i]][[j]],
+                                                              function(x) x[6,1])),3),
+                                   SE.Dech=round(sd(sapply(roeStratSam[[i]][[j]],
+                                                           function(x) x[6,1])),4),
+                                   Couv.IC=round(mean(sapply(roeStratSam[[i]][[j]],
+                                                             function(x)
+                                   (x[6,3]< -0.054)&(x[6,4]>-0.054))),3),
+                                   Estim.SE=round(mean(sapply(roeStratSam[[i]][[j]],
+                                                              function(x) x[6,2]),
+                                                       na.rm=TRUE),3),
+                                   SE.Estim.SE=round(sd(sapply(roeStratSam[[i]][[j]],
+                                                               function(x) x[6,2]),
+                                                        na.rm=TRUE),3)
+                               )
+                           }))
+            df1$Method <- c("REM_raw","REM_det","REM_det_act",
+                            "IS_raw","IS_det","IS_det_act")
+            df1 <- df1[,c(1,7,2:6)]
+
+            if (i==3)
+                return(df1)
+            return(rbind(df1,
+                         data.frame(p="",Method="", Esp.Dech="",SE.Dech="",
+                                    Couv.IC="",Estim.SE="",SE.Estim.SE="")))
+        }))
+options(oldopt)
+@
+
+We can see that placing half of the traps in the paths neighborhood
+leads to a slightly more precise estimate, but the difference with
+other allocations was not very strong, suggesting that this factor may
+not have a large effect on the estimation. Comparing the standard
+error of the estimates of the trend in the stratified case ($\approx$
+0.035 to 0.055) with the standard errors of the trend in the
+simulations carried out previously without habitat selection
+($\approx$ 0.05 to 0.06) suggests that stratification improves only
+slightly the estimate precision.
+
+
+\subsubsection{Simulating the stratification itself}
+\label{sec:simul-strat-itself}
+
+The problem with the approach described in the previous section is
+that it is very long to implement (it took several days of calculation
+just to simulate the three levels of allocation). An easier and
+quicker approach consists in combining the detections by traps in
+simulations where all traps are placed in the neighborhood of paths
+with the detections by traps in other simulations where all traps are
+not placed in this neighborhood. For example, to simulate a
+stratification where 10\% of the traps are placed in the neighborhood
+of paths, we can extract the detections from the 10 first traps in the
+simulations carried out in section \ref{sec:simulation}, and
+extracting the detections from the 90 first traps in simulations (that
+we carry out below) of a monitoring in which all traps are located far
+from the paths. The limit of this approach is that the animals that
+are simulated in the first set of simulations and in the second set
+are not the same. However, we will see below that the results obtained
+for the three levels of allocation (p = 0.25, p = 0.5, p = 0.75)
+tested in the previous section are the same with this approach and
+with the approach implementing a stratification directly within the
+simulated study.\\
+
+Therefore, to implement this approach, we first need to simulate 500
+studies where all the camera traps are located far from the paths. We
+use the same code as in section \ref{sec:simulation}, just changing
+the parameter \texttt{propPaths=0}.  We used the following
+code. WARNING: THIS CALCULATION TAKES A VERY LONG TIME!!!! To limit
+the computation time, we only simulated 500 times this study:
+
+<<eval=FALSE>>=
+simrd5withhs0 <- simulateCTStudy5years(nCT = 100, duration = 30,
+                                       niter = 500, dfPopSize, 
+                                       listPatches, contourChize,
+                                       contourN=northChize,
+                                       contourS=southChize,
+                                       dff=relationAnimalSigmaMaxd, habitatMap,
+                                       listptg=mvtMatrices$listMatBetween,
+                                       ptp=mvtMatrices$MatWithin,
+                                       stratSampling=TRUE,
+                                       propPaths=0, pathsMap=pathsMap,
+                                       pathsBuffer=pathsBuffer,
+                                       offPathsMap=offPathsMap,
+                                       offPathsBuffer=offPathsBuffer,
+                                       habitatSelection=TRUE,
+                                       nofi = 0, backup = TRUE)
+
+@ 
+
+As before, we did not include the result of these simulations in the
+package, as the resulting object size was too large to fit in a R
+package (941.2 Mb), though it is of course available from the authors
+upon request.\\
+
+Now, the idea is to combine the detections from a given proportion of
+traps (e.g., 10\%) from the simulations in \texttt{simrd5withhs} from
+the section \ref{sec:simulation} with the detections from the
+complementary proportion (e.g., 90\%) from this object
+\texttt{simrd5withhs0}. We estimate the animal abundance in the paths
+neighborhood with the 6 methods using only the detections from the
+traps in the paths neighborhood; we then estimate the animal abundance
+in the habitat distant from paths with the six methods using only the
+detections from the traps in the habitat distant from paths. The
+abundance estimate on the whole study area is the sum of the abundance
+estimates in these two habitat types.\\
+
+We carry out these calculations. First, to speed up the calculations,
+we first begin by calculating the mean detection probability for each
+trap in \texttt{simrd5withhs} and \texttt{simrd5withhs0} (this code is
+slow, and the objects \texttt{simrd5withhs} and \texttt{simrd5withhs0}
+are too large to fit in the package, and the result are not included
+in the package; this code is provided for information purposes):
+
+<<eval=FALSE>>=
+prop0 <- lapply(1:500, function(j) {
+    cat(j,"\r")
+    habitat4sim <- simrd5withhs0$encounters[[j]]$indicetraps$hab
+    set.seed(simrd5withhs0$encounters[[j]]$creationCT[2])
+    list100CT <- lapply(1:100, function(k) {
+        organiseCT(habitat4sim[k])
+    })
+    sapply(1:length(list100CT),
+           function(trap)
+        mean(1 -
+             exp(-list100CT[[trap]]$vu)))
+})
+
+prop1 <- lapply(1:500, function(j) {
+    cat(j,"\r")
+    habitat4sim <- simrd5withhs$encounters[[j]]$indicetraps$hab
+    set.seed(simrd5withhs$encounters[[j]]$creationCT[2])
+    list100CT <- lapply(1:100, function(k) {
+        organiseCT(habitat4sim[k])
+    })
+    sapply(1:length(list100CT),
+           function(trap)
+        mean(1 -
+             exp(-list100CT[[trap]]$vu)))
+})
+@ 
+
+Then we consider a variable proportion of traps in the paths
+neighborhood (from 5 to 95\%). For each proportion, we use the
+function \texttt{sampleCTs} to select the corresponding proportion of
+traps in \texttt{simrd5withhs} and \texttt{simrd5withhs0}. We then use
+the functions \texttt{Remhab} and \texttt{IShab} to estimate abundance
+in the two habitat types with the six methods (close and far from
+paths). This code is also very slow, and cannot be executed by the
+user since they do not have the objects \texttt{simrd5withhs} and
+\texttt{simrd5withhs0}. However, the resulting object is available as
+a dataset from the package:
+
+<<eval=FALSE>>=
+liche <- list()
+lipas <- list()
+litot <- list()
+
+for (i in 1:length(pro)) {
+
+    cat("#############################\n## Iteration",i, "\n\n")
+    cat("## rem_raw\n")
+    reb <- sampleCTs(simrd5withhs, pro[i])
+    rec <- sampleCTs(simrd5withhs0, 100-pro[i])
+
+    ## REM_raw:
+    rem_raw_che <- Remhab(reb, paths=TRUE, detection=FALSE, active=FALSE)
+    rem_raw_pas <- Remhab(rec, paths=FALSE, detection=FALSE, active=FALSE)
+    rem_raw <- rem_raw_che+rem_raw_pas
+
+    ## REM_detect:
+    cat("## rem_det\n")
+    rem_det_che <- Remhab(reb, paths=TRUE, detection=TRUE, active=FALSE)
+    rem_det_pas <- Remhab(rec, paths=FALSE, detection=TRUE, active=FALSE)
+    rem_det <- rem_det_che+rem_det_pas
+
+    ## REM_detect_activ
+    cat("## rem_det_act\n")
+    rem_det_act_che <- Remhab(reb, paths=TRUE, detection=TRUE, active=TRUE)
+    rem_det_act_pas <- Remhab(rec, paths=FALSE, detection=TRUE, active=TRUE)
+    rem_det_act <- rem_det_act_che+rem_det_act_pas
+
+
+    ## IS_raw:
+    cat("## is_raw\n")
+    is_raw_che <- IShab(reb, paths=TRUE, detection=FALSE, active=FALSE, prop=prop1)
+    is_raw_pas <- IShab(rec, paths=FALSE, detection=FALSE, active=FALSE, prop=prop0)
+    is_raw <- is_raw_che+is_raw_pas
+
+    ## IS_detect:
+    cat("## is_det\n")
+    is_det_che <- IShab(reb, paths=TRUE, detection=TRUE, active=FALSE, prop=prop1)
+    is_det_pas <- IShab(rec, paths=FALSE, detection=TRUE, active=FALSE, prop=prop0)
+    is_det <- is_det_che+is_det_pas
+
+    ## IS_detect_activ
+    cat("## is_det_act\n")
+    is_det_act_che <- IShab(reb, paths=TRUE, detection=TRUE, active=TRUE, prop=prop1)
+    is_det_act_pas <- IShab(rec, paths=FALSE, detection=TRUE, active=TRUE, prop=prop0)
+    is_det_act <- is_det_act_che+is_det_act_pas
+
+    ##
+    liche[[i]] <- data.frame(rem_raw=rem_raw_che, rem_det=rem_det_che,
+                             rem_det_act=rem_det_act_che,
+                             is_raw=is_raw_che, is_det=is_det_che,
+                             is_det_act=is_det_act_che)
+    lipas[[i]] <- data.frame(rem_raw=rem_raw_pas, rem_det=rem_det_pas,
+                             rem_det_act=rem_det_act_pas,
+                             is_raw=is_raw_pas, is_det=is_det_pas,
+                             is_det_act=is_det_act_pas)
+
+    litot[[i]] <- data.frame(rem_raw=rem_raw, rem_det=rem_det,
+                             rem_det_act=rem_det_act,
+                             is_raw=is_raw, is_det=is_det,
+                             is_det_act=is_det_act)
+}
+
+stratData <- list(inPaths=liche, offPaths=lipas, all=litot)
+@ 
+
+
+We can then estimate the coefficient of variation, for each method and
+each proportion of traps in the paths neighborhood:
+
+<<fig.width=10, fig.height=10, out.width='\\linewidth', out.height='\\linewidth',>>=
+par(mfrow=c(3,2))
+un <- unique(sapply(strsplit(names(stratData$all[[1]]),"\\."),function(x) x[1]))
+pro <- seq(5,95,by=5)
+tmp <- lapply(1:6, function(j) {
+    cv <- sapply(1:19, function(i) {
+        o <- stratData$all[[i]][,paste0(un[j],".1")]
+        sd(o,na.rm=TRUE)/mean(o,na.rm=TRUE)
+        })
+    plot(pro/100,cv, ty="b",
+         xlab="Proportion of traps close to paths",
+        ylab="Coefficient of variation",
+        main=un[j], ylim=c(0.15,0.5))
+    abline(h=seq(0.15,0.5, by=0.1),
+           v=seq(0.05,0.95,by=0.1), col="grey")
+    points(pro/100, cv, ty="b")
+    })
+
+@ 
+
+
+These results are interpreted in the paper. Note how the results are
+similar to the results of the previous section, where the
+stratification was implemented directly in the simulation of a
+five-year study.
+
+
+
+\subsection{Monitoring of the red deer during five years: no habitat
+  selection and random sampling of traps)}
+
+\subsubsection{With 100 traps}
+\label{sec:with-100-traps}
+
+We also simulated the movement of an animal larger than a roe deer to
+assess the effect of the home-range size on the precision of our
+estimates. To make things clearer we considered an animal with a
+home-range size similar to the home-range size of the red deer. We
+used the same movement algorithm as for the movement of the roe deer,
+with the following differences: (i) the value of $\sigma^2$ used for
+both between-patch and patch movement was set to 10000 $m^2$, (ii) the
+patches location are randomly drawn in a rectangular box of 4
+kilometres wide centred on the home range center. An illustration of
+this process is given below:
+
+<<>>=
+simulate_red_deer <- function()
+{
+    ## between 5 ànd 10 patches
+    np <- sample(5:10, 1)
+    ## the patches:
+    cb <- cbind(runif(np,-2000,2000),
+                runif(np,-2000,2000))
+    ## simulation
+    lipt <- list(ptg=mvtMatrices$listMatBetween[[10]],
+                 ptp=mvtMatrices$listMatBetween[[10]])
+    lixyt <- list(cb, cb)
+    z <- roeDeerMovement(30, lixyt, lipt = lipt, 
+                         verbose = FALSE)
+
+    return(z)
+}
+
+plot(simulate_red_deer(), ty="l")
+@ 
+
+Contrary to what was simulated for the roe deer, we did no try to be
+as realistic as possible for the ``red deer''. The aim was to generate
+movements that cover a large area. Simulations of this process showed
+that the Minimum convex polygon of the simulated animals covered a
+mean area equal to 469 ha (interquartile range: 383 -- 548 ha), which
+is approximately the home range size of the actual red deer
+\citep{Kamler2008}. Note that we simulated a constant home-range size
+for the five years of the study (i.e., we used the same process for
+all years).\\
+
+We then simulated a population decrease that could be considered as
+realistic for the red deer. As for the roe deer, we simulated a
+population size of 300 red deer on the study area during the first
+year (which is a very high density for this species, but this allowed
+a comparison with the roe deer). We supposed a sex-ratio of 0.5, an
+adult annual survival of 0.76, and a reproduction equal to 0.5 fawns
+per female. We simulated this process 1000 times and chose one
+simulation characterized by a population decrease exactly equal to
+20\%:
+
+
+<<>>=
+set.seed(777)
+li <- list()
+for (k in 1:1000) {
+    N <- 300
+    nfem <- N/2
+    nmal <- N/2
+    nsurf  <- nsurm <- njfem <- njmal <- numeric(0)
+
+    ## For each year
+    for (i in 2:5) {
+
+        ## Survival of previous year
+        nsurf[i-1] <- rbinom(1,nfem[i-1],0.76)
+        nsurm[i-1] <- rbinom(1,nmal[i-1],0.76)
+
+        ## 0.5 young per female * sex ratio of 0.5 = 0.25
+        njfem[i-1] <- rbinom(1,nsurf[i-1],0.25)
+        njmal[i-1] <- rbinom(1,nsurf[i-1],0.25)
+
+        ## Number of females = number surviving from previous year
+        ## + new females
+        nfem[i] <- nsurf[i-1]+njfem[i-1]
+        ## same for males
+        nmal[i] <- nsurm[i-1]+njmal[i-1]
+    }
+    N <- nfem+nmal
+    li[[k]] <- data.frame(Ntot=N, Old=c(0,nsurm+nsurf), New=c(0,njfem+njmal))
+}
+liN <- do.call(rbind,lapply(li, function(x) x$Ntot))
+
+## Repeated 1000 times, we select a case resulting in 240 animals
+## during the last year:
+whi <- c(1:nrow(liN))[liN[,5]==240][
+    which.min(apply(apply(liN[liN[,5]==240,],1,diff),2,var))]
+
+(dfPopSizeRedDeer <- li[[whi]])
+@
+
+Note that the resulting object \texttt{dfPopSizeRedDeer} is available
+as a dataset from the package.\\
+
+We then used the function \texttt{simulateCTStudy5years} to simulate
+1000 times a five-year camera trap study of this ``red deer''
+population, simulating for each year the movement of these ``red
+deer'' and their monitoring using 100 camera traps randomly placed on
+the study area. Note the use of \texttt{redDeer=TRUE} in this
+function. WARNING: THIS CALCULATION TAKES A VERY LONG TIME!!!! (see
+below):
+
+<<eval=FALSE>>=
+simrd5nohsrd <- simulateCTStudy5years(nCT = 100, duration = 30,
+                                      niter = 1000,
+                                      dfPopSizeRedDeer,
+                                      listPatches, contourChize,
+                                      contourN=northChize,
+                                      contourS=southChize,
+                                      dff=relationAnimalSigmaMaxd,
+                                      habitatMap=habitatMap,
+                                      listptg=mvtMatrices$listMatBetween,
+                                      ptp=mvtMatrices$MatWithin,
+                                      redDeer=TRUE, nofi = 0,
+                                      backup = TRUE)
+@ 
+
+
+We did not include the result of these simulations in the package, as
+the resulting object size was too large to fit in a R package (2.5
+Gb), though it is of course available from the authors upon
+request. We then used the function \texttt{process\_all} of the
+package to estimate population size, trend and population decrease
+from these data. Note that this code will not work on the readers'
+computer, as the main object \texttt{simrd5nohsrd} is not available in
+the package. This code is provided for information purposes. Note also
+that the resulting list \texttt{redNoHS} is available as a dataset in
+the package:
+
+<<eval=FALSE>>=
+redNoHS <- process_all(simrd5nohsrd)
+@ 
+
+We can use the function \texttt{present\_results\_CT} from the package
+to summarize these results:
+
+<<>>=
+oldopt <- options(width = 100)
+present_results_CT(redNoHS, dfPopSizeRedDeer)
+options(oldopt)
+@ 
+
+These results are discussed in the paper.
+
+\subsubsection{With 25 traps}
+\label{sec:with-25-traps}
+
+We reproduced this simulation using only 25 traps. We again used the
+function \texttt{sampleCTs} from the package to subsample the results
+of the simulations carried out in previous section (again, this
+calculation will not work on the user's computer, as the dataset
+\texttt{simrd5nohsrd} is not available in the package. This code is
+provided only for information purposes):
+
+
+<<eval=FALSE>>=
+simrd5nohs25rd <- sampleCts(simrd5nohsrd, 25)
+@ 
+
+And we use the function \texttt{process\_all} to calculate the
+population size and trends estimates for each one (this code is also
+provided for information purpose. However the resulting object
+\texttt{redNoHS25} is available in the package as a dataset):
+
+<<eval=FALSE>>=
+redNoHS25 <- process_all(simrd5nohs25rd)
+@ 
+
+And finally, we use the function \texttt{present\_results\_CT} from the
+package to summarize the study with only 25 traps:
+
+<<>>=
+oldopt <- options(width = 100)
+present_results_CT(redNoHS25, dfPopSizeRedDeer)
+options(oldopt)
+
+@ 
+
+These results are discussed in the paper.
+
+
+\subsection{Simulations with a wider angle for the detection zone}
+
+All the previous simulations were carried out by supposing that the
+detection zone was a 20 metres circular sector with an angle of 10
+degrees (0.175 radians). As noted in the paper, we chose this value
+based on the simulations by \citet{Rowcliffe2008}. However, camera
+traps are often characterized by a wider angle \citep[e.g., 42
+degrees, ][]{Howe2017}. After setting the length and angle of the
+circular sector for their simulations, \citet{Rowcliffe2008} noted
+that \textit{The conclusions were not sensitive to any of these
+  variables}. We checked that this was indeed the case in this
+section.\\
+
+We reproduced the simulations carried out in section \ref{sec:roe1},
+simulating 100 traps over the study area to monitor a roe deer
+population, without any habitat selection. We used the same code as in
+this section, just changing the value of the parameter
+\texttt{fieldangle} to an angle of 0.735 radians (42 degrees). We
+carried out only 500 iterations, but even with 500 iterations,
+WARNING: THIS CALCULATION TAKES A VERY LONG TIME!!!!
+
+<<eval=FALSE>>=
+simrd5nohs735 <- simulateCTStudy5years(nCT = 100, duration = 30,
+                                       niter = 500, dfPopSize,
+                                       listPatches, contourChize, contourN=northChize,
+                                       contourS=southChize,
+                                       dff=relationAnimalSigmaMaxd, habitatMap,
+                                       listptg=mvtMatrices$listMatBetween,
+                                       ptp=mvtMatrices$MatWithin,
+                                       fieldangle=0.735, depth=20,
+                                       nofi = 0, backup = TRUE)
+@ 
+
+We did not include the result of these simulations in the package, as
+the resulting object size was too large to fit in a R package (2.5
+Gb), though it is of course available from the authors upon
+request. We then used the function \texttt{process\_all} to estimate
+the population abundance for each year, the variation rate between
+year 1 and year 5, and the trend $\lambda$ (together with their 90\%
+bootstrap confidence interval). We use the function
+\texttt{process\_all} (again, recall that this code will not work
+since the main object \texttt{simrd5nohs735} is not available in the
+package. This code is provided only for information purposes):
+
+
+<<eval=FALSE>>=
+roeNoHS735 <- process_all(simrd5nohs735)
+@ 
+
+The resulting object \texttt{roeNoHS735} is available as a dataset of
+the package for the 1000 simulations:
+
+<<>>=
+str(roeNoHS735,1)
+@ 
+
+We can then build the table summarizing the main results of these
+simulations. The function \texttt{present\_results\_CT} from the
+package can be used:
+
+<<>>=
+oldopt <- options(width = 100) ## to allow a cleaner display of the results
+
+present_results_CT(roeNoHS735, dfPopSize)
+
+options(oldopt)
+@ 
+
+On could compare this table with the one obtained with camera traps
+characterized by a detection zone of 0.175 radians (10
+degrees). Though this table is already presented in section
+\ref{sec:roe1}, we show it again below to facilitate this comparison.
+
+
+<<>>=
+oldopt <- options(width = 100) ## to allow a cleaner display of the results
+
+present_results_CT(roeNoHS, dfPopSize)
+
+options(oldopt)
+@ 
+
+\textbf{The results are
+  not sensitive to the angle of the detection zone}. 
+
+
+
+
+\subsection{Remark: On the bias of trend estimation}
+\label{sec:remark:-bias-estim}
+
+In all our simulations, we used equation \ref{eq:estlambda} to
+estimate $\lambda$. We just replaced $N_t$ by its estimate
+$\hat{N}_t$, i.e. we estimated $\mu$ with:
+$$
+\hat{\mu} = \frac{\mbox{Cov}(\log \hat{N}_t, t)}{\mbox{Var}(t)}
+$$
+However, we can show that $\mbox{Cov}(\log \hat{N}_t, t)$ is a biased
+estimate of $\mbox{Cov}(\log N_t, t)$. Without loss of generality, let
+us replace the variable $t$ in this equation by a centred variable
+$t'$ (i.e. with a mean equal to zero), i.e. $t' = t-(T+1)/2$. Then:
+\begin{eqnarray}
+  \mbox{Cov}(\log \hat{N_t}, t') & = & \frac{1}{T} \sum_{t=1}^T
+                                       t'(\log \hat{N}_t - \bar{n}) \nonumber\\
+                                 & = & \frac{1}{T} \left \{ \sum_{t=1}^T t' \log \hat{N}_t\right\} -
+                                       \frac{1}{T} \bar{n} \left\{ \sum_{t=1}^T t-(T+1)/2\right\}\nonumber\\
+                                 & = & \frac{1}{T} \left \{ \sum_{t=1}^T t' \log \hat{N}_t\right\}\label{eq:cov1}
+\end{eqnarray}
+with $\bar{n} = \frac{1}{N} \sum_{t=1}^T \log \hat{N}_t$, the mean of
+$\log \hat{N}_t$ over the study period. Note that the second term in
+the second row vanishes since:
+\begin{eqnarray*}
+  \left \{ \sum_{t=1}^T t-(T+1)/2 \right \} & = & \left \{ \sum_{t=1}^T t \right \} -
+  T(T+1)/2\\
+  & = & T(T+1)/2 - T(T+1)/2 = 0
+\end{eqnarray*}
+We use a Taylor expansion of the function:
+$$
+f(\mathbf{x}) = \frac{1}{T} \left \{ \sum_{t=1}^T t' \log x_t\right\}
+$$
+The gradient vector of this function is equal to:
+$$
+\frac{\partial f(\mathbf{x})}{\partial x_t} = \frac{t'}{T\times x_t} 
+$$
+And the Hessian matrix:
+$$
+\frac{\partial f(\mathbf{x})}{\partial x_t\partial x_u} = \left \{
+  \begin{array}{ll}
+    0 & \mbox{if } t\neq u\\
+    -\frac{t'}{T x_t^2} &\mbox{otherwise}
+  \end{array}
+  \right.
+$$
+The Taylor approximation around the true value $\mathbf{x} =
+\mathbf{N} = \{N_t\}$ is:
+$$
+\mbox{Cov}(\log \hat{N_t}, t') = \frac{1}{T} \left \{
+  \sum_{t=1}^T t' \log
+  N_t\right\} +  \left\{
+  \sum_{t=1}^T
+  \frac{t'(\hat{N}_t-N_t)}{TN_t}\right\}
+- \left\{ \sum_{t=1}^T \frac{t'
+    (\hat{N}_t-N_t)^2}{2 T N_t^2}
+\right\}                                       
+$$
+We now define the bias:
+$$
+B = E \left (\mbox{Cov}(\log \hat{N_t}, t') - \mbox{Cov}(\log N_t,
+  t')\right)
+$$
+The bias can then be estimated with:
+\begin{eqnarray*}
+  B & = & E \left (  \sum_{t=1}^T
+          \frac{t'(\hat{N}_t-N_t)}{TN_t}\right)  
+- E \left( \frac{t'
+          (\hat{N}_t-N_t)^2}{2T N_t^2} \right)\\
+  & = &   \sum_{t=1}^T \frac{t'E(\hat{N}_t-N_t)}{TN_t}  
+        - \sum_{t=1}^T \frac{t'E\left((\hat{N}_t-N_t)^2\right)}{2T
+        N_t^2}\\
+  & = &  \sum_{t=1}^T \frac{-t'}{T} \times
+        \frac{\mbox{Var}(\hat{N}_t)}{2N_t^2}\\
+  & = & \frac{1}{2} \sum_{t=1}^T \frac{((T+1)/2)-t}{T} \times
+        \frac{\mbox{Var}(\hat{N}_t)}{N_t^2} \label{eq:eqbiaisslo}
+\end{eqnarray*}
+Note that the first term of the equation on the second row vanishes,
+as under the hypothesis of zero bias of the estimation of $N_t$ with
+$\hat{N}_t$, we have $E(\hat{N}_t-N_t) = 0$.\\
+
+Note that the ratio Var($\hat{N}_t$)/$N_t^2$ in this equation is an
+approximation of the variance of $\log \hat{N}_t$. Indeed, a first
+order Taylor approximation of $\log X$ around $E(X)$ shows that:
+$$
+\log X \approx \log E(X) + \frac{(X-E(X))}{E(X)}
+$$
+So that:
+$$
+\mbox{Var}(\log X) \approx \frac{\mbox{Var}(X)}{E(X)^2}
+$$
+And therefore:
+$$
+\mbox{Var}(\log \hat{N}_t) \approx \frac{\mbox{Var}(\hat{N}_t)}{N_t^2}
+$$
+So that we can interpret equation \ref{eq:eqbiaisslo}:\\
+\begin{itemize}
+\item When the variance of $\log \hat{N}_t$ is constant for all
+  $t$, then the ratio
+  $\mbox{Var}(\hat{N}_t)/N_t^2$ is equal to a constant
+  $k$ that does not depend on
+  $t$, and equation \ref{eq:eqbiaisslo} is therefore equal to $(k/T)
+  \sum ((T+1)/2)-t) = 0$. In other words, when the variance of $\log
+  \hat{N}_t$ is constant for all $t$, the slope estimation is
+  not biased.\\
+
+\item When the variance of $\log \hat{N}_t$ is higher at the beginning
+  of the period, i.e. for small $t$, (i.e. for positive values of
+  $(T+1)/2 - t$, the bias $B$ is greater than zero: the slope $\mu =
+  \log \lambda$ is overestimated (we overestimate population increase
+  and underestimate population decreases).\\
+
+\item Conversely, when the variance of $\log \hat{N}_t$ is higher at
+  the end of the study period, i.e. for negative values of $(T+1)/2 -
+  t$, the bias is negative: we underestimate $\mu$ and therefore
+  population increase (and we overestimate population decrease).\\
+\end{itemize}
+
+
+
+We can rely on the simulations carried out previously to calculate the
+variance of $\log \hat{N}_t$  --
+estimated for example using raw IS for all years, with the two
+simulations protocols (with and without habitat selection):
+
+
+<<>>=
+u <- sapply(roeNoHS$IS_raw, function(x) log(x[1:5,1]))
+sd1 <- apply(u,1,var)
+sd2 <- apply(sapply(roeHSBiasedSam$IS_raw, function(x) log(x[1:5,1])),1,var)
+dv <- data.frame(year=paste0("Year ", 1:5),
+                 Variance1=sd1,
+                 Variance2=sd2)
+names(dv) <- c("Year","Without habitat selection","With habitat selection")
+dv
+@ 
+
+The variance of $\log \hat{N}$ is weakly variable from one year to the
+next in both cases, suggesting a limited bias when a simple unweighted
+linear regression is used to estimate $\lambda$. Working on a
+logarithmic scale to estimate this parameter actually makes the
+variance of $\log \hat{N}$ more stable, and allows this limited bias.
+
+
+
+\begin{thebibliography}{6}
+\providecommand{\natexlab}[1]{#1}
+\bibitem[{Calenge et~al.(2024)}]{Calengeinprep}
+  Calenge, C. et~al. 2024.
+  \newblock Evaluating camera trap methods for monitoring population trends in ungulates: insights from simulation.
+  \newblock -- in prep.
+  
+\bibitem[{CRPF (2004)}]{CRPF2004}
+  CRPF, 2004.
+  \newblock Sch\'{e}ma r\'{e}gional de gestion sylvicole.
+  \newblock -- Technical report, Centre r\'{e}gional de la propriété
+  forestière de Poitou-Charente.
+  
+\bibitem[{Fleming et~al.(2014)}]{Fleming2014}
+  Fleming, C.H. et~al. 2014.
+  \newblock From fine-scale foraging to home ranges:
+  a semivariance approach to identifying movement modes across
+  spatiotemporal scales.
+  \newblock -- The American Naturalist 183, E154–E167.
+  
+\bibitem[{Howe et~al.(2017)}]{Howe2017}
+  Howe, E.J. et~al. 2017
+  \newblock Distance sampling with camera traps.
+  \newblock -- Methods in Ecology and Evolution 8, 1558–1565.
+  
+\bibitem[{Kamler et~al.(2004)}]{Kamler2008}
+  Kamler, J.F. et~al. 2008
+  \newblock Home Ranges of Red Deer in a European Old-growth Forest. 
+  \newblock -- The American Midland Naturalist 159, 75–82.
+
+
+\bibitem[{Kjellander et~al.(2004)}]{Kjellander2004}
+  Kjellander, P. et~al. 2004
+  \newblock Experimental evidence for density-dependence of home-range
+  size in roe deer (Capreolus capreolus L.): a comparison of two
+  long-term studies
+  \newblock -- Oecologia 139, 478–485.
+  
+\bibitem[{Moeller et~al.(2018)}]{Moeller2018}
+  Moeller, A.K. et~al. 2018
+  \newblock  Three novel methods to estimate abundance of unmarked animals using remote cameras. 
+  \newblock -- Ecosphere 9, e02331.
+
+\bibitem[{Pettorelli et~al.(2001)}]{Pettorelli2001}
+  Pettorelli, N. et~al. 2001
+  \newblock Age and density modify the effects of habitat quality on survival and movements of roe deer. 
+  \newblock -- Ecology 84, 3307–3316.
+  
+\bibitem[{Rowcliffe et~al.(2008)}]{Rowcliffe2008}
+  Rowcliffe, J.M. et~al. 2008
+  \newblock Estimating animal density using camera traps without the need for individual recognition.
+  \newblock -- Journal of Applied Ecology 45, 1228–1236.
+
+\bibitem[{Therneau \& Grabsch (2000)}]{Therneau2000}
+  Therneau, T.M. \& Grambsch, P.M., 2000
+  \newblock Modeling survival data: extending the Cox model.
+  \newblock -- Springer Science \& Business Media.
+
+\end{thebibliography}
+
+
+\end{document}
+
+
+

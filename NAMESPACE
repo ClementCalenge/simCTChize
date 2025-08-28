@@ -1,0 +1,17 @@
+useDynLib(simCTChize, .registration = TRUE)
+
+importFrom("stats", "runif", "rpois", "rnorm", "rbinom", "cov", "var", "sd", "quantile", "na.omit", "coef", "lm")
+importFrom("utils", "object.size", "str")
+
+export("bootstrapIS", "bootstrapIScompar", "bootstrapREM",
+       "bootstrapREMcompar", "estimatePopSize", "estimIS", "estimRem",
+       "generateCTbase", "obstaclesQ", "organiseCT", "prepareMvt",
+       "roeDeerMovement", "sampleCTs", "simulateCTStudy5years",
+       "whenDetection", "HSlocation", "strsampleCT",
+       "estimTrendIS","estimTrendRem","bootstrapTrendIS",
+       "bootstrapTrendRem", "processCTStudy", "removeHour",
+       "print.simCT", "c.simCT", "present_results_CT", "process_all",
+       "Remhab","IShab")
+
+S3method(c, simCT)
+S3method(print, simCT)
