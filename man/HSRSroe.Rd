@@ -1,20 +1,21 @@
-\name{roeHSBiasedSam}
-\alias{roeHSBiasedSam}
+\name{HSRSroe}
+\alias{HSRSroe}
 \docType{data}
 \title{
   Population Size and Trend Estimates for our Simulations of a Camera
-  Trap Study on a Roe Deer population Based on 100 traps (all placed in
-  the habitat type selected by the roe deer)
+  Trap Study on a Roe Deer population Based on 100 traps Randomly
+  Distributed (Presence of Habitat Selection)
 }
 \description{
+  
   This dataset contains the point estimates and bootstrap confidence
   intervals on population size and trends for our 1000 simulations of a
-  5-year camera trap monitoring based on 100 traps of a roe deer
-  population all placed in 
-  the habitat type selected by the roe deer. See examples for the code used to create this
-  object.
+  5-year camera trap monitoring based on 100 randomly placed traps of a
+  roe deer population (presence of habitat selection). See examples for
+  the code used to create this object.
+
 }
-\usage{data("roeHSBiasedSam")}
+\usage{data("HSRSroe")}
 \format{
 
   This dataset is a list with 6 components.  The first three components
@@ -52,29 +53,49 @@
 }
 \examples{
 
-## We first simulated a habitat selection by the roe deer and a
-## stratified sampling of the traps, using this code:
-## DONT RUN IT, it is extremely slow !!!
 
-\dontrun{
+## The actual dataset containing the results of the 1000 simulations was
+## too large to fit in this package. We illustrate the code used to
+## generate the dataset roeNoHS using only the 4 simulations stored in
+## sim4iter. Note that the dataset roeNoHS is similar to HSRSroe with a
+## difference: roenoHS is simulated without habitat selection, whereas
+## HSRSroe is simulated with habitat selection
+
+## We first wrote this function:
+
+compute_all <- function(simrd5nohs)
+{
+    ## REM
+    REM_raw <- processCTStudy(simrd5nohs, method="REM",
+                              detectability=FALSE, active=FALSE)
+    REM_detect <- processCTStudy(simrd5nohs, method="REM",
+                                 detectability=TRUE, active=FALSE)
+    REM_detect_active <- processCTStudy(simrd5nohs, method="REM",
+                                        detectability=TRUE, active=TRUE)
+
+
+    ## IS
+    IS_raw <- processCTStudy(simrd5nohs, method="IS",
+                             detectability=FALSE, active=FALSE)
+    IS_detect <- processCTStudy(simrd5nohs, method="IS",
+                                detectability=TRUE, active=FALSE)
+    IS_detect_active <- processCTStudy(simrd5nohs, method="IS",
+                                       detectability=TRUE, active=TRUE)
+
     
-simrd5withhs <- simulateCTStudy5years(nCT = 100, duration = 30,
-                                      niter = 500, dfPopSize, 
-                                      listPatches, contourChize, contourN=northChize,
-                                      contourS=southChize,
-                                      dff=relationAnimalSigmaMaxd, habitatMap,
-                                      listptg=mvtMatrices$listMatBetween,
-                                      ptp=mvtMatrices$MatWithin, stratSampling=TRUE,
-                                      propPaths=1, pathsMap=pathsMap,
-                                      pathsBuffer=pathsBuffer, offPathsMap=offPathsMap,
-                                      offPathsBuffer=offPathsBuffer,
-                                      habitatSelection=TRUE,
-                                      nofi = 0, backup = TRUE)
+    roeNoHS <- list(REM_raw=REM_raw, REM_detect=REM_detect,
+                    REM_detect_active=REM_detect_active,
+                    IS_raw=IS_raw, IS_detect=IS_detect,
+                    IS_detect_active=IS_detect_active)
+
+    return(roeNoHS)
 }
 
+\dontrun{
+## Warning: very slow code !!
+roeNoHSsubsample <- compute_all(sim4iter)
 
-## We then used the same code as the one used for roeNoHS (see the
-## examples on the help page of this dataset)
-
+roeNoHSsubsample
+}
 }
 \keyword{datasets}

@@ -47,7 +47,7 @@
   Obtained by simulations.
 }
 \references{
-  Calenge et al. 2025. Evaluating camera trap methods for monitoring
+  Calenge et al. 2026. Evaluating camera trap methods for monitoring
   population trends in ungulates: insights from simulation. in prep.
 }
 \examples{

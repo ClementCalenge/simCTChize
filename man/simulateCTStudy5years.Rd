@@ -12,7 +12,9 @@ simulateCTStudy5years(nCT = 100, duration = 30, niter = 15, dfPopSize,
                       dff, habitatMap, listptg, ptp,
                       stratSampling=FALSE, propPaths=NULL, pathsMap=NULL,
                       pathsBuffer=NULL, offPathsMap=NULL, offPathsBuffer=NULL,
-                      habitatSelection=FALSE, redDeer=FALSE, fieldangle=0.175, depth=20,
+                      habitatSelection=FALSE, LRroeDeer=FALSE,
+                      LRroeDeerIncreaseDV=FALSE,
+                      fieldangle=0.175, depth=20,
                       nofi = 0, backup = TRUE)
 }
 \arguments{
@@ -133,10 +135,10 @@ simulateCTStudy5years(nCT = 100, duration = 30, niter = 15, dfPopSize,
     used as center of attractions in the function
     \code{roeDeerMovement}.  See the function \code{HSlocation}.
   }
-  \item{redDeer}{
+  \item{LRroeDeer}{
     
     Logical value. If \code{TRUE}, the function simulates much larger
-    home ranges than for the roe deer.  More precisely, the centroid of
+    home ranges than for the standard roe deer.  More precisely, the centroid of
     the home range is randomly drawn in the "core study area" (eroded
     study area corresponding to an inner buffer of 1000 m from the limit
     of the study area), possibly restricted on paths if \code{habitat
@@ -144,6 +146,18 @@ simulateCTStudy5years(nCT = 100, duration = 30, niter = 15, dfPopSize,
     comprised between 5 and 10 is randomly drawn in a box of +/- 2000 m
     centred on this centroid (possibly only on paths if
     \code{habitatSelection} is TRUE). Then, large patches centred on
+    these attraction points are simulated using mixed Ornstein-Uhlenbeck
+    movement characterized by a large value of sigma (equal to 10000,
+    see the function \code{prepareMvt}). 
+
+  }
+  \item{LRroeDeerIncreaseDV}{
+    
+    Logical value. If \code{TRUE}, the function simulates an increasing 
+    average home range over the five years: the patches simulated are
+    randomly drawn in a box of +/- X m centred on this centroid, where X
+    increases from 1414 m to 
+    2000 m over the 5 years. Then, large patches centred on
     these attraction points are simulated using mixed Ornstein-Uhlenbeck
     movement characterized by a large value of sigma (equal to 10000,
     see the function \code{prepareMvt}). 
@@ -169,10 +183,10 @@ simulateCTStudy5years(nCT = 100, duration = 30, niter = 15, dfPopSize,
   This function first randomly places \code{nCT} camera traps over the
   study area of Chize (and defines a probability of detection of animals
   depending on the habitat type, see the function \code{organiseCT} for
-  more details). Then it simulates a number of roe deer (or red deer)
-  for each year given in \code{dfPopSize}. Their movements are simulated
-  with the function \code{roeDeerMovement}. Their home-range size
-  increase as the population decrease. The function then counts the
+  more details). Then it simulates a number of roe deer (or large-range
+  roe deer) for each year given in \code{dfPopSize}. Their movements are
+  simulated with the function \code{roeDeerMovement}. Their home-range
+  size increase as the population decrease. The function then counts the
   number of detected encounters and associations between each animal and
   each camera trap.
   
@@ -226,7 +240,7 @@ simulateCTStudy5years(nCT = 100, duration = 30, niter = 15, dfPopSize,
 
 }
 \references{
-  Calenge et al. 2025. Evaluating camera trap methods for monitoring
+  Calenge et al. 2026. Evaluating camera trap methods for monitoring
   population trends in ungulates: insights from simulation. in prep.
 }
 \author{

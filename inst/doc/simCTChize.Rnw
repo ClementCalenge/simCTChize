@@ -114,7 +114,7 @@ Then, one possibility is to download the tarball from Zenodo (URL:
 the R working directory. The installation is then simple:
 
 <<eval=FALSE>>=
-install.packages("simCTChize_1.0.tar.gz", repos = NULL, type="source")
+install.packages("simCTChize_1.2.tar.gz", repos = NULL, type="source")
 @ 
 
 Another possibility is to install it from Github with the function
@@ -1556,7 +1556,8 @@ will never be the case in real studies).
 \label{sec:trend-summary-over}
 
 Our study also estimates the trend of population size over 5 years. We
-assessed this trend using the classical model:
+used the classical theoretical framework developed by
+\citet{Gerrodette1987}, assuming:
 $$
 N_t = N_0 \mu^t
 $$
@@ -1830,6 +1831,7 @@ next section for an example of use).
 
 \subsection{Monitoring of the roe deer during five years: no habitat
   selection and random sampling of traps)}
+\label{sec:roenohsran}
 
 \subsubsection{Using 100 traps}
 \label{sec:roe1}
@@ -1950,6 +1952,7 @@ options(oldopt)
 
 \subsection{Monitoring of the roe deer during five years: selection of
   paths and traps preferentially placed on paths}
+\label{sec:selhabnonra}
 
 \subsubsection{Simulated habitat selection process}
 \label{sec:simul-habit-select}
@@ -2121,7 +2124,7 @@ These results are also discussed in the paper.
 
 
 \subsubsection{Proportion of the time spent near the paths}
-
+\label{sec:proptspath}
 
 In these simulations, we supposed that the mean home-range size of
 animals increased with time. Therefore, the dispersion of the
@@ -2689,9 +2692,238 @@ stratification was implemented directly in the simulation of a
 five-year study.
 
 
+\subsection{Habitat selection and random placement of camera traps}
+\label{sec:habit-select-rand}
 
-\subsection{Monitoring of the red deer during five years: no habitat
-  selection and random sampling of traps)}
+\subsubsection{The simulations}
+\label{sec:habit-select-r-sim}
+
+Finally, we conducted simulations under a habitat selection scenario
+while maintaining random camera-trap placement. Unlike the scenarios
+in section \ref{sec:selhabnonra} -- which combined habitat selection
+with non-random camera trap placement -- this approach aims to isolate
+the specific influence of habitat selection on the estimators. By
+comparing these results with the baseline results in section
+\ref{sec:roenohsran} (random placement of camera traps without habitat
+selection), we can quantify the bias or imprecision introduced solely
+by the animals' habitat preferences, independently of any
+observer-driven sampling
+bias.\\
+
+The function \texttt{simulateCTStudy5years} can also be used to
+simulate a camera trap monitoring of the roe deer population, with a
+habitat selection by the animals (this is controlled by the parameter
+\texttt{habitatSelection = TRUE}) and a random placement of the traps
+(we just let the option \texttt{stratSampling} set to the default
+value \texttt{FALSE}). We used the following code. WARNING: THIS
+CALCULATION TAKES A VERY LONG TIME!!!! To limit the computation time,
+we only simulated 500 times this study:
+
+<<eval=FALSE>>=
+roeDeerHSRandomSam <- simulateCTStudy5years(nCT = 100, duration = 30,
+                                            niter = 500, dfPopSize,
+                                            listPatches, contourChize,
+                                            contourN=northChize,
+                                            contourS=southChize,
+                                            dff=relationAnimalSigmaMaxd, habitatMap,
+                                            listptg=mvtMatrices$listMatBetween,
+                                            ptp=mvtMatrices$MatWithin,
+                                            pathsMap=pathsMap,
+                                            pathsBuffer=pathsBuffer,
+                                            offPathsMap=offPathsMap,
+                                            offPathsBuffer=offPathsBuffer,
+                                            habitatSelection=TRUE,
+                                            nofi = 0, backup = TRUE)
+
+@ 
+
+Again, we did not include the result of these simulations in the
+package, as the resulting object size was too large to fit in a R
+package (123 Mb), though it is of course available from the authors
+upon request. We then used the function \texttt{process\_all} of the
+package to estimate population size, trend and population decrease
+from these data. Note that this code will not work on the readers'
+computer, as the main object \texttt{roeDeerHSRandomSam} is not
+available in the package. This code is provided for information
+purposes. Note also that the resulting list \texttt{HSRSroe} is
+available as a dataset in the package:
+
+<<eval=FALSE>>=
+HSRSroe <- process_all(roeDeerHSRandomSam)
+@
+
+We then present the results:
+
+<<>>=
+oldopt <- options(width = 100)
+present_results_CT(HSRSroe, dfPopSize)
+options(oldopt)
+@
+
+A comparison with Section \ref{sec:roenohsran} reveals that estimation
+outcomes are very similar between scenarios with and without habitat
+selection, provided that the camera traps are randomly placed. In
+terms of bias, the outcomes are virtually identical: both REM and IS
+provide unbiased population size estimates -- provided detectability
+and activity rhythms are accounted for -- as do the resulting change
+rates and trends. However the introduction of habitat selection leads
+to two minor differences regarding the precision of the estimates:\\
+\begin{itemize}
+\item The population size estimates are slightly less precise in the
+  presence of habitat selection. 
+\item Conversely, the trend estimation is slightly more precise with
+  habitat selection.\\
+\end{itemize}
+While the impact of habitat selection on precision remains marginal,
+we believe that exploring the underlying theoretical drivers of these
+results is instructive for a deeper understanding of the factors
+factors affecting camera trap studies. Given the secondary nature of
+these effects relative to our primary findings, we have focused the
+main text on the most impactful results and provided a more detailed
+theoretical examination only in the following two subsections.
+
+\subsubsection{A larger variance of the population size estimation
+  with habitat selection}
+
+The increased variance of population size estimate is expected, as
+habitat selection leads to a greater spatial heterogeneity in animal
+density across the study area. This, in turn, leads to a higher
+variability in encounter rates among trap locations, which naturally
+propagates into a higher variance of the estimates.\\
+
+To provide a more formal explanation of this phenomenon, consider a
+single year (e.g., Year 1). Let $N = 300$ be the number of animals on
+the study area of total surface $A = 2598$ ha. We divide the area into
+two habitat types: $A_1 = 986$ ha of selected habitat (path
+neighborhoods) and $A_2 = 1612$ ha of non-selected habitat, such that
+$A_1 \approx 0.38 \times A$ and $A_2 \approx 0.62\times A$. For simplicity,
+let $s$ denote the effective sampling area of a single camera trap,
+assuming $s$ is constant  constant across all traps and detectability
+is perfect.\\
+
+First, consider the baseline scenario with no habitat selection. In
+this case, the probability $x$ that a specific animal is located
+within the detection zone of a given trap at any time $t$ is simply
+the ratio of the traps detection area to the total study area:
+$x = s/A$. Assuming $G = 100$ camera traps are randomly distributed
+across the area, and treating their detection zones as independent,
+the probability $u_n$that an animal is present within the detection
+zone of at one trap at time $t$ is equal to
+$$
+u_n = 1-(1-x)^G
+$$
+Given that $s$ is very small in comparison to $A$, the probability
+$s/A$ is typically very small. We can therefore approximate this
+quantity by a Taylor expansion:
+\begin{equation}
+  \label{equnoh}
+u_n \approx G\times x
+\end{equation}
+
+Now, consider the scenario with habitat selection. We analyze the two
+habitat types separately. With random placement, the expected number
+of camera traps falling into the selected habitat is $G_1 = G\times
+(A_1/A)$, and similarly, $G_2 = G\times(A_2/A)$ for the non-selected
+habitat. Using the same rationale as before, the probability that an
+individual located within the selected habitat is captured by at least
+one trap is:
+$$
+c_1 \approx G\times (A_1/A)\times x
+$$
+Similarly, for an individual in the non-selected habitat:
+$$
+c_2 \approx G\times (A_2/A)\times x
+$$
+In the presence of habitat selection, let $p_h$ be the probability
+that a randomly chosen animal is located within the selected
+habitat. The overall probability  $u_h$ that this animal is detected
+by at least one trap is:
+$$
+u_h = p_h \times c_1 + (1-p_h)\times c_2 
+$$
+Substituting the expressions for $c_1$ and $c_2$ into the equation for
+$u_h$, we obtain:
+\begin{equation}
+  \label{equhh}
+u_h = p_h \times G\times (A_1/A)\times x  + (1-p_h)\times G\times (A_2/A)\times x 
+\end{equation}
+Our simulation results (section \ref{sec:proptspath}) indicate that
+$p_h \approx
+0.55$. We can therefore calculate the ratio of the probabilities
+$u_h/u_n$ by dividing equation \ref{equhh} by equation \ref{equnoh},
+and substituting the parameter values from our study:
+\begin{eqnarray*}
+  u_h/u_n  & = & (0.55\times 100\times 0.38\times x + 0.45\times 100
+                 \times 0.62\times x)/(100x)\\
+         & = & (20.9\times x + 27.9 \times x)/(100x)\\
+         & = & 0.488\\
+\end{eqnarray*}
+Therefore, the probability of an animal being detected by at least one
+trap is approximately halved when habitat selection is present. This
+reduction in detection probability explains the increased estimation
+variance: since the majority of traps (62\%) are located in habitats
+that are less frequently used by the animals, the effective sampling
+effort is diminished compared to a spatially uniform scenario.
+
+
+
+\subsubsection{A reduced variance of the trend estimation with habitat
+  selection}
+
+The reduced variance of trend estimates is also expected. Indeed,
+strong habitat selection leads to a spatial aggregation of individuals
+within specific areas (in our simulations, the path
+neighborhoods). Consequently, traps located within these highly used
+habitats record a higher number of different animals, which increases
+the sensitivity of the monitoring design to detect population changes
+across successive years.\\
+
+To formalize this, consider two years from the study period (e.g.,
+Year 1 and Year 2), and the estimated change rate
+$\hat{N}_2/\hat{N}_1$. It is well-known \citep[e.g., eq. 16
+in][]{Powell2007} in that the variance of this ratio can be
+approximated by:
+\begin{equation}
+  \label{eq:vartv}
+  \mbox{Var}\left(\frac{\hat{N}_2}{\hat{N}_1} \right ) \approx \frac{E(\hat{N}_2)^2}{E(\hat{N}_1)^2}
+\cdot \left ( \frac{\mbox{Var}(\hat{N}_2)}{E(\hat{N}_2)^2} - 2\frac{\mbox{Cov}(\hat{N}_2,\hat{N}_1)}{E(\hat{N}_1)\cdot E(\hat{N}_2)}
+  + \frac{\mbox{Var}(\hat{N}_1)}{E(\hat{N}_1)^2}\right)
+\end{equation}
+The critical term in this expression is the covariance
+$\mbox{Cov}(\hat{N}_2,\hat{N}_1)$ between the estimators of the two
+years. A larger positive covariance reduces the overall variance of
+the ratio, thereby increasing the precision of the trend estimate.\\
+
+We compared the covariance between the sampling distributions of
+population size estimates for Year 1 and Year 5, using the simulations
+conducted with and without habitat selection (sections
+\ref{sec:habit-select-r-sim} and \ref{sec:roenohsran},
+respectively). For example, considering the REM accounting for
+activity and detectability:
+
+<<>>=
+## Covariance with habitat selection:
+u <- HSRSroe[[3]]
+cov(sapply(u, function(x) x[1,1]),
+    sapply(u, function(x) x[5,1]))
+
+
+## Covariance between year 1 and 5 without habitat selection
+u2 <- roeNoHS[[3]]
+cov(sapply(u2, function(x) x[1,1]),
+    sapply(u2, function(x) x[5,1]))
+@ 
+
+The covariance between the two years is much larger when habitat
+selection is present, which, as explained before, is due to the
+aggregation of individuals in selected habitats. As a result, the
+changes of population size across years can be estimated more
+precisely.
+
+
+
+\subsection{Monitoring of the large-range roe deer during five years:
+  no habitat selection and random sampling of traps)}
 
 \subsubsection{With 100 traps}
 \label{sec:with-100-traps}
@@ -2708,7 +2940,7 @@ kilometres wide centred on the home range center. An illustration of
 this process is given below:
 
 <<>>=
-simulate_red_deer <- function()
+simulate_large_range_roe_deer <- function()
 {
     ## between 5 ànd 10 patches
     np <- sample(5:10, 1)
@@ -2725,26 +2957,28 @@ simulate_red_deer <- function()
     return(z)
 }
 
-plot(simulate_red_deer(), ty="l")
+plot(simulate_large_range_roe_deer(), ty="l")
 @ 
 
-Contrary to what was simulated for the roe deer, we did no try to be
-as realistic as possible for the ``red deer''. The aim was to generate
-movements that cover a large area. Simulations of this process showed
-that the Minimum convex polygon of the simulated animals covered a
-mean area equal to 469 ha (interquartile range: 383 -- 548 ha), which
-is approximately the home range size of the actual red deer
-\citep{Kamler2008}. Note that we simulated a constant home-range size
-for the five years of the study (i.e., we used the same process for
+Contrary to what was simulated for the standard roe deer, we did no
+try to be as realistic as possible for the large-range roe deer. The
+aim was to generate movements that cover a large area. Simulations of
+this process showed that the Minimum convex polygon of the simulated
+animals covered a mean area equal to 469 ha (interquartile range: 383
+-- 548 ha), which is approximately the home range size of the
+red deer \citep{Kamler2008}. Note that we simulated a constant
+home-range size for the five years of the study (i.e., we used the
+same process for
 all years).\\
 
-We then simulated a population decrease that could be considered as
-realistic for the red deer. As for the roe deer, we simulated a
-population size of 300 red deer on the study area during the first
-year (which is a very high density for this species, but this allowed
-a comparison with the roe deer). We supposed a sex-ratio of 0.5, an
-adult annual survival of 0.76, and a reproduction equal to 0.5 fawns
-per female. We simulated this process 1000 times and chose one
+We then simulated a population decrease for the large-range roe deer
+that could also be considered as realistic for the red deer. As for
+the standard roe deer, we simulated a population size of 300
+large-range roe deer on the study area during the first year (which
+would be a very high density for the red deer, but this allowed a
+comparison with the standard roe deer). We supposed a sex-ratio of
+0.5, an adult annual survival of 0.76, and a reproduction equal to 0.5
+fawns per female. We simulated this process 1000 times and chose one
 simulation characterized by a population decrease exactly equal to
 20\%:
 
@@ -2789,13 +3023,14 @@ whi <- c(1:nrow(liN))[liN[,5]==240][
 @
 
 Note that the resulting object \texttt{dfPopSizeRedDeer} is available
-as a dataset from the package.\\
+as a dataset from the package (its name comes from the fact that we
+used the data collected on the red deer to build it).\\
 
 We then used the function \texttt{simulateCTStudy5years} to simulate
-1000 times a five-year camera trap study of this ``red deer''
-population, simulating for each year the movement of these ``red
-deer'' and their monitoring using 100 camera traps randomly placed on
-the study area. Note the use of \texttt{redDeer=TRUE} in this
+1000 times a five-year camera trap study of this large-range roe deer
+population, simulating for each year the movement of these animals and
+their monitoring using 100 camera traps randomly placed on the study
+area. Note the use of \texttt{LRroeDeer = TRUE} in this
 function. WARNING: THIS CALCULATION TAKES A VERY LONG TIME!!!! (see
 below):
 
@@ -2823,11 +3058,11 @@ package to estimate population size, trend and population decrease
 from these data. Note that this code will not work on the readers'
 computer, as the main object \texttt{simrd5nohsrd} is not available in
 the package. This code is provided for information purposes. Note also
-that the resulting list \texttt{redNoHS} is available as a dataset in
+that the resulting list \texttt{LRroeNoHS} is available as a dataset in
 the package:
 
 <<eval=FALSE>>=
-redNoHS <- process_all(simrd5nohsrd)
+LRroeNoHS <- process_all(simrd5nohsrd)
 @ 
 
 We can use the function \texttt{present\_results\_CT} from the package
@@ -2835,7 +3070,7 @@ to summarize these results:
 
 <<>>=
 oldopt <- options(width = 100)
-present_results_CT(redNoHS, dfPopSizeRedDeer)
+present_results_CT(LRroeNoHS, dfPopSizeRedDeer)
 options(oldopt)
 @ 
 
@@ -2859,10 +3094,10 @@ simrd5nohs25rd <- sampleCts(simrd5nohsrd, 25)
 And we use the function \texttt{process\_all} to calculate the
 population size and trends estimates for each one (this code is also
 provided for information purpose. However the resulting object
-\texttt{redNoHS25} is available in the package as a dataset):
+\texttt{LRroeNoHS25} is available in the package as a dataset):
 
 <<eval=FALSE>>=
-redNoHS25 <- process_all(simrd5nohs25rd)
+LRroeNoHS25 <- process_all(simrd5nohs25rd)
 @ 
 
 And finally, we use the function \texttt{present\_results\_CT} from the
@@ -2870,12 +3105,355 @@ package to summarize the study with only 25 traps:
 
 <<>>=
 oldopt <- options(width = 100)
-present_results_CT(redNoHS25, dfPopSizeRedDeer)
+present_results_CT(LRroeNoHS25, dfPopSizeRedDeer)
 options(oldopt)
 
 @ 
 
 These results are discussed in the paper.
+
+
+\subsubsection{With 100 traps and an increasing home-range}
+\label{sec:lrroe-increasing}
+
+The previous simulations were carried out by supposing that the
+home-range size was constant across the 5 years. We conducted an
+additional set of simulations (with 100 camera traps) to also assess
+the impact of a linearly increasing home-range size for a large range
+species. This increase was modeled by widening the rectangular box
+around the home-range centroid from which patch centers were
+sampled. Specifically at year t, patch locations were randomly drawn
+within a square box of width $W_t$ centrered on the home range
+centroid, and defined as:
+$$
+W_t = 2\times \left (1.414+t\times \frac{4-1.414}{5}\right)
+$$
+where $t=1,...,5$ represents the year of the study. Thus the sampling
+box width expanded from 2.828 km in year 1 to 4 km in year 5.\\
+
+We simulated this process for 100 animals during year 1 and year 5 to
+illustrate it. This calculation can take several minutes, so to save
+some time, we have stored the results in the dataset
+\texttt{LRroeIS2years}: 
+
+<<eval=FALSE>>=
+## This function simulate such movements: this function takes one
+## argument si, the half-size of the box in which the patch centers
+## are sampled, and returns the coordinates of the animal monitored
+## during one month.
+simulate_LR_deerHR <- function(si=2000)
+{
+    np <- sample(5:10, 1)
+    ## the patches:
+    cb <- cbind(runif(np,-si,si),
+                runif(np,-si,si))
+    ## between 5 and 10 patches
+    ## simulation
+    lipt <- list(ptg=mvtMatrices$listMatBetween[[10]],
+                 ptp=mvtMatrices$listMatBetween[[10]])
+    lixyt <- list(cb, cb)
+    z <- roeDeerMovement(30, lixyt, lipt = lipt,
+                         verbose = FALSE)
+    return(z)
+}
+
+## Year 1
+ar1 <- sapply(1:100, function(i) {
+    cat(i,"\r")
+    s <- simulate_LR_deerHR(si=1414)
+    sr <- s[seq(1,nrow(s), length=5000),]
+    pc <- mcp(SpatialPoints(as.data.frame(sr)))
+    return(pc$area)
+})
+
+## Year 5
+ar2 <- sapply(1:100, function(i) {
+    cat(i,"\r")
+    s <- simulate_LR_deerHR(si=2000)
+    sr <- s[seq(1,nrow(s), length=5000),]
+    pc <- mcp(SpatialPoints(as.data.frame(sr)))
+    return(pc$area)
+})
+
+
+LRroeIS2years <- list(ar1,ar2)
+names(LRroeIS2years) <- c("year 1", "year 5")
+
+@ 
+
+The dataset is directly available, and we can show how the home-range
+size changes between year 1 and year 5:
+
+<<>>=
+boxplot(LRroeIS2years, xlab="Year", ylab="Home-range size (ha)")
+@ 
+
+Thus, the simulated mean home-range size changes from about 400 to 700
+ha in average, from year 1 to year 5.\\
+
+We can simulate this increasing home-range size by setting the
+parameter \texttt{LRroeDeerIncreaseDV} to true. We carry out 500
+simulations of a camera-trap study. Again, WARNING: THIS CALCULATION
+TAKES A VERY LONG TIME!!!! (see below):
+
+<<eval=FALSE>>=
+LRDeerDVa <- simulateCTStudy5years(nCT = 100, duration = 30,
+                                   niter = 500,
+                                   dfPopSizeRedDeer,
+                                   listPatches, contourChize,
+                                   contourN=northChize,
+                                   contourS=southChize,
+                                   dff=relationAnimalSigmaMaxd,
+                                   habitatMap=habitatMap,
+                                   listptg=mvtMatrices$listMatBetween,
+                                   ptp=mvtMatrices$MatWithin,
+                                   LRroeDeer=TRUE, LRroeDeerIncreaseDV=TRUE, nofi = 0,
+                                   backup = TRUE)
+
+@ 
+
+Again, we did not include the result of these simulations in the
+package, as the resulting object size was too large to fit in a R
+package (168 Mb), though it is of course available from the authors
+upon request. We then used the function \texttt{process\_all} of the
+package to estimate population size, trend and population decrease
+from these data. Note that this code will not work on the readers'
+computer, as the main object \texttt{LRDeerDVa} is not available in
+the package. This code is provided for information purposes. Note also
+that the resulting list \texttt{LRRoeIncreasingHR} is available as a dataset
+in the package:
+
+<<eval=FALSE>>=
+LRRoeIncreasingHR <- process_all(LRDeerDVa)
+@ 
+
+We can use the function \texttt{present\_results\_CT} from the package
+to summarize these results:
+
+<<>>=
+oldopt <- options(width = 100)
+present_results_CT(LRRoeIncreasingHR, dfPopSizeRedDeer)
+options(oldopt)
+@ 
+
+
+These results are consistent with those obtained under constant
+home-range scenarios, showing no clear differences in either bias or
+precision. In particular, the probabilities of detecting the
+decreasing trend were similar across both settings. This illustrates
+that, provided the mean movement speed is correctly estimated for the
+REM, temporal changes in home-range size do not significantly affect
+these estimation methods.
+
+
+\subsection{Increasing the number of traps and shortening the study period}
+
+\subsubsection{Increasing the number of traps only}
+\label{sec:first-just-incr}
+
+The simulations of the large-range roe-deer revealed that the mean
+number of camera traps visited by an individual is a critical driver
+of trend estimation precision. Increasing the home-range size was a
+convenient way to increase the number of traps visited per animal
+without altering the nominal sampling effort (number of traps or study
+duration). In this section, we further explore how the dimensions of
+sampling effort influence our results. Our large-range simulations
+were characterized by individuals visiting 7.6 times more traps than
+in the standard roe deer scenario. To test if this effect is purely
+additive, we ran again the simulations for the standard roe deer using
+760 camera traps instead of 100. This design yields the same density
+of traps per home range as the large-range scenario, allowing us to
+determine if increasing technical effort produces results similar to
+those obtained through increased animal mobility.
+
+Given that this analysis is exploratory and that increasing the number
+of traps to 760 significantly raises the computational time, we
+limited this specific scenario to 100 replications, which we
+considered sufficient to provide a reliable estimate of the general
+trend and of the magnitude of the precision improvement. The R code
+for these simulations is the same as for the standard roe deer
+simulations, just changing the number of traps. As explained before,
+WARNING: THIS CALCULATION TAKES A VERY LONG TIME!!!! (see below):
+
+<<eval=FALSE>>=
+roeDeerManyTraps <- simulateCTStudy5years(nCT = 780, duration = 30,
+                                          niter = 100, dfPopSize,
+                                          listPatches, contourChize,
+                                          contourN=northChize,
+                                          contourS=southChize,
+                                          dff=relationAnimalSigmaMaxd,
+                                          habitatMap,
+                                          listptg=mvtMatrices$listMatBetween,
+                                          ptp=mvtMatrices$MatWithin, nofi = 0,
+                                          backup = TRUE)
+@ 
+
+Again, we did not include the result of these simulations in the
+package, as the resulting object size was too large to fit in a R
+package, though it is of course available from the authors upon
+request. To maintain a reasonable computational timeframe, we
+restricted our analysis to the configurations where activity and
+detectability are accounted for, estimating the population sizes and
+trends using the REM and IS approaches. Moreover, we reduced the
+number of bootstrap iterations to 500 (down from 1000). This
+adjustment was justified by the significantly higher number of
+encounters and associations in this high-effort scenario (see below),
+which substantially increases the computational cost per iteration
+while simultaneously reducing the relative benefit of a higher number
+of bootstrap samples. Note that this code will not work on the readers'
+computer, as the main object \texttt{roeDeerManyTraps} is not available in
+the package. This code is provided for information purposes. Note also
+that the resulting list \texttt{res760CT} is available as a dataset
+in the package:
+
+<<eval=FALSE>>=
+system.time(REM760CT <- processCTStudy(s,method="REM", Nboot=500))
+system.time(IS760CT <- processCTStudy(s,method="IS", Nboot=500))
+res760CT <- list(REM=REM760CT, IS=IS760CT)
+@ 
+
+We now present the estimation results for the population size during
+Year 1 and for the trend:
+
+<<>>=
+re <- do.call(rbind,lapply(res760CT, function(y) {
+    popsi <- sapply(y, function(x) x[1,1])
+    trend <- sapply(y, function(x) x[6,1])
+    sigtrend <- mean(sapply(y, function(x) x[6,4]<0))
+    dectrend <- mean(sapply(y, function(x) x[6,1]<0))
+    return(c(mean(popsi), sd(popsi), mean(trend), sd(trend), dectrend, sigtrend))
+}))
+colnames(re) <- c("MeanPop","SEPop", "MeanTrend","SETrend", "PDec", "PsigD")
+rownames(re) <- c("REM_da","IS_da")
+round(re,3)
+@ 
+
+Comparing these results with those of the large-range roe deer
+simulations, we observe that the precision of the trend estimates is
+sligthly larger in high-effort scenario (SE $\approx$ 0.02 for the two
+methods, compared to 0.035 and 0.065 respectively for the REM and IS
+in the large-range scenario). By increasing the number of camera traps
+to 760, we effectively raised the mean number of visited traps per
+individual to 3.48 (SD = 0.17). While this value is nearly identical
+to that of the large-range roe deer (3.49, SD=0.62), the further gain
+in precision in the 760-trap scenario likely stems from the massive
+increase in the total number of encounters and associations.  Indeed,
+the high-effort scenario yielded a much higher volume of data, with an
+average of 144914 associations (SD = 9955) compared to 17951 (SD =
+3667) for the large-range roe deer. Similarly, the mean number of
+encounters rose to 5164 (SD = 259) compared to 1584 (SD=279) for the
+large-range roe deer.
+
+Increasing the number of camera traps to 760 also led to a substantial
+gain in the precision of population size estimates, far exceeding that
+observed for the large-range roe deer. This difference is also caused
+by the massive increase in total sampling effort.
+
+
+
+\subsubsection{Increasing the number of traps while shortening the study period}
+\label{sec:incr-numb-traps}
+
+To maintain a constant total sampling effort while using 760 traps, we
+reduced the study period duration by 7.6. Specifically, we subsampled
+the data from the previous scenario, considering only the encounters
+and associations that occurred during the first 3.95 days instead of
+the full 30-day period. This approach allows us to simulate a higher
+trap density across the study area while keeping the total activation
+time (total trap-days) equivalent
+to our baseline 100-trap scenario.\\
+
+Thus, we first selected the encounters/associations that occurred
+during the first 3.95 days of the study period. The following code
+will not work on the readers computer, as the main object
+\texttt{roeDeerManyTraps} is not available in the package. It is given
+for information:
+
+<<eval=FALSE>>=
+## For each iteration
+for (i in 1:length(roeDeerManyTraps$encounters)) {
+    ## for each year
+    for (a in 1:5) {
+        z <- roeDeerManyTraps$encounters[[i]]$results[[a]]
+        ## for each pair of animal/trap
+        for (j in 1:length(z)) {
+            ## keep only the encounters occurring during the
+            ## first 3.95 days
+            x <- z[[j]]
+            y <- x[x$beginning < (3.95*3600*24),]
+            z[[j]] <- y
+        }
+        ## store the results
+        roeDeerManyTraps$encounters[[i]]$results[[a]] <-
+            z[sapply(z,nrow)>0]
+    }
+}
+@ 
+
+We then use the function \texttt{process\_all} to estimate the
+population sizes and trends from these data.  Again, this code will not work on the readers' computer, as
+the object \texttt{roeDeerManyTraps} is not available in the
+package. The resulting object \texttt{roe760coef} is available as a
+dataset in the package:
+
+<<eval=FALSE>>=
+roe760coef <- process_all(roeDeerManyTraps)
+@ 
+
+
+Note that the function \texttt{process\_all} assumes that the study
+period covers 30 days, so that we have to post-process the results to
+account for the shorter simulated period:
+
+<<>>=
+## Post-processing
+## for each estimation method
+for (i in 1:length(roe760coef)) {
+
+    ## for each iteration
+    for (j in 1:length(roe760coef[[i]])) {
+
+        ## Multiply the population size estimates by 7.6 to account
+        ## for the fact that the duration was 7.6 times smaller
+        x <- roe760coef[[i]][[j]]
+        x[1:5,1] <- x[1:5,1]*(30/3.95)
+        x[1:5,3] <- x[1:5,3]*(30/3.95)
+        x[1:5,4] <- x[1:5,4]*(30/3.95)
+
+        ## Multiply the variance of the population size estimates by
+        ## 7.6^2 and updates the standard errors
+        va <- x[1:5,2]^2
+        vab <- va*((30/3.95)^2)
+        x[1:5,2] <- sqrt(vab)
+
+        ## trends and change rate SE are not expected to change
+        ## since the popsize estimates are all multiplied by the same value
+        ## so that the slope on a log scale will remain the same,
+        ## and the ratio between two popsize will remain the same too.
+
+        ## We store the results
+        roe760coef[[i]][[j]] <- x
+    }
+}
+@ 
+
+
+We can now present the results:
+
+<<>>=
+oldopt <- options(width = 100)
+present_results_CT(roe760coef, dfPopSizeRedDeer)
+options(oldopt)
+@ 
+
+The precision of the trend estimate is now nearly identical for both
+the high-trap-density and the large-range scenarios, confirming that
+when total activation time is held constant, trend precision is
+primarily driven by the number of traps per home range. However, the
+high-density design still led to an increase of the precision of
+population size estimates. Overall, these results confirm that
+achieving a high number of traps per home range is e prerequisite for
+reliably estimating population trends.
 
 
 \subsection{Simulations with a wider angle for the detection zone}
@@ -2966,7 +3544,7 @@ options(oldopt)
 
 
 
-\subsection{Remark: On the bias of trend estimation}
+\subsection{Remark 1: On the bias of trend estimation}
 \label{sec:remark:-bias-estim}
 
 In all our simulations, we used equation \ref{eq:estlambda} to
@@ -3112,8 +3690,8 @@ variance of $\log \hat{N}$ more stable, and allows this limited bias.
 
 \begin{thebibliography}{6}
 \providecommand{\natexlab}[1]{#1}
-\bibitem[{Calenge et~al.(2024)}]{Calengeinprep}
-  Calenge, C. et~al. 2024.
+\bibitem[{Calenge et~al.(2026)}]{Calengeinprep}
+  Calenge, C. et~al. 2026.
   \newblock Evaluating camera trap methods for monitoring population trends in ungulates: insights from simulation.
   \newblock -- in prep.
   
@@ -3129,7 +3707,12 @@ variance of $\log \hat{N}$ more stable, and allows this limited bias.
   a semivariance approach to identifying movement modes across
   spatiotemporal scales.
   \newblock -- The American Naturalist 183, E154–E167.
-  
+
+  \bibitem[{Gerrodette (1987)}]{Gerrodette1987}
+   Gerrodette, T. 1987
+  \newblock A power analysis for detecting trends
+  \newblock -- Ecology 68, 1364–1372.
+
 \bibitem[{Howe et~al.(2017)}]{Howe2017}
   Howe, E.J. et~al. 2017
   \newblock Distance sampling with camera traps.
@@ -3157,7 +3740,12 @@ variance of $\log \hat{N}$ more stable, and allows this limited bias.
   Pettorelli, N. et~al. 2001
   \newblock Age and density modify the effects of habitat quality on survival and movements of roe deer. 
   \newblock -- Ecology 84, 3307–3316.
-  
+
+\bibitem[{Powell (2007)}]{Powell2007}
+  Powell, L.A. 2007
+  \newblock Approximating Variance of Demographic Parameters Using the Delta Method: A Reference for Avian Biologists
+  \newblock -- The Condor 109, 949–954.
+
 \bibitem[{Rowcliffe et~al.(2008)}]{Rowcliffe2008}
   Rowcliffe, J.M. et~al. 2008
   \newblock Estimating animal density using camera traps without the need for individual recognition.

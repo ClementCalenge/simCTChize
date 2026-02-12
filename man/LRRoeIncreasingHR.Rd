@@ -1,19 +1,21 @@
-\name{redNoHS25}
-\alias{redNoHS25}
+\name{LRRoeIncreasingHR}
+\alias{LRRoeIncreasingHR}
 \docType{data}
 \title{
   Population Size and Trend Estimates for our Simulations of a Camera
-  Trap Study on a Red Deer population Based on 25 traps (no Habitat Selection)
+  Trap Study on a Large-Range Roe Deer population Based on 100 traps (no
+  Habitat Selection) With an Home-Range Increasing With Time
 }
 \description{
   This dataset contains the point estimates and bootstrap confidence
   intervals on population size and trends for our 1000 simulations of a
-  5-year camera trap monitoring based on 25 traps of a red deer
+  5-year camera trap monitoring based on 100 traps of a large-range roe deer
   population (large home ranges, no habitat
-  selection simulated). See examples for the code used to create this
-  object.
+  selection simulated).  In these simulations, the home-range size of
+  the animals increases with time. See examples for the code used to
+  create this object.
 }
-\usage{data("redNoHS25")}
+\usage{data("LRRoeIncreasingHR")}
 \format{
 
   This dataset is a list with 6 components.  The first three components
@@ -42,29 +44,28 @@
 
 }
 \source{
-  Calenge et al. 2025. Evaluating camera trap methods for monitoring
+  Calenge et al. 2026. Evaluating camera trap methods for monitoring
   population trends in ungulates: insights from simulation. in prep.
 }
 \references{
-  Calenge et al. 2025. Evaluating camera trap methods for monitoring
+  Calenge et al. 2026. Evaluating camera trap methods for monitoring
   population trends in ungulates: insights from simulation. in prep.
 }
 \examples{
 
 ## The actual dataset containing the results of the 1000 simulations was
 ## too large to fit in this package. We have an example dataset on the
-## roe deer (sim4iter, see the help page of this object), and the object
-## on the red deer is obtained similarly, but setting redDeer = TRUE in
-## the function simulateCTStudy5years. We illustrate the code used to
-## generate the dataset redNoHS, using only the 4 simulations stored in
-## sim4iter, and with the difference that sim4iter corresponds to
-## simulation of a roe deer population, not a red deer population.
+## standard roe deer (sim4iter, see the help page of this object), and
+## the object on the large-range roe deer is obtained similarly, but
+## setting LRroeDeer = TRUE in the function simulateCTStudy5years. We
+## simulated the increasing home-range size by setting
+## LRroeDeerIncreaseDV = TRUE in this function. We illustrate the code
+## used to generate the dataset LRroeNoHS, using the similar code for
+## the using only the 4 simulations stored in sim4iter, and with the
+## difference that sim4iter corresponds to simulation of a standard roe
+## deer population, not a large-range roe deer population.
 
-## We first subsampled the traps in this dataset to obtain a monitoring
-## with 25 traps
-sim4iter25 <- sampleCTs(sim4iter, 25)
-
-## We then wrote this function:
+## We first wrote this function:
 
 compute_all <- function(simrd5nohs)
 {
@@ -96,9 +97,9 @@ compute_all <- function(simrd5nohs)
 
 \dontrun{
 ## Warning: very slow code !!
-roeNoHSsubsample25 <- compute_all(sim4iter25)
+roeNoHSsubsample <- compute_all(sim4iter)
 
-roeNoHSsubsample25
+roeNoHSsubsample
 }
 
 }

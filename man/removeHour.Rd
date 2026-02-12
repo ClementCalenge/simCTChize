@@ -45,7 +45,7 @@ removeHour(x, startHour=8, endHour=17)
   An object similar to \code{x}, but with relevant detection removed.
 }
 \references{
-  Calenge et al. 2025. Evaluating camera trap methods for monitoring
+  Calenge et al. 2026. Evaluating camera trap methods for monitoring
   population trends in ungulates: insights from simulation. in prep.
 }
 \author{

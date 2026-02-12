@@ -26,7 +26,7 @@ set.seed(9567)
 
 
 ## ----eval=FALSE-------------------------------------------
-## install.packages("simCTChize_1.0.tar.gz", repos = NULL, type="source")
+## install.packages("simCTChize_1.2.tar.gz", repos = NULL, type="source")
 
 
 ## ----eval=FALSE-------------------------------------------
@@ -1299,8 +1299,49 @@ tmp <- lapply(1:6, function(j) {
 
 
 
+## ----eval=FALSE-------------------------------------------
+## roeDeerHSRandomSam <- simulateCTStudy5years(nCT = 100, duration = 30,
+##                                             niter = 500, dfPopSize,
+##                                             listPatches, contourChize,
+##                                             contourN=northChize,
+##                                             contourS=southChize,
+##                                             dff=relationAnimalSigmaMaxd, habitatMap,
+##                                             listptg=mvtMatrices$listMatBetween,
+##                                             ptp=mvtMatrices$MatWithin,
+##                                             pathsMap=pathsMap,
+##                                             pathsBuffer=pathsBuffer,
+##                                             offPathsMap=offPathsMap,
+##                                             offPathsBuffer=offPathsBuffer,
+##                                             habitatSelection=TRUE,
+##                                             nofi = 0, backup = TRUE)
+## 
+
+
+## ----eval=FALSE-------------------------------------------
+## HSRSroe <- process_all(roeDeerHSRandomSam)
+
+
 ## ---------------------------------------------------------
-simulate_red_deer <- function()
+oldopt <- options(width = 100)
+present_results_CT(HSRSroe, dfPopSize)
+options(oldopt)
+
+
+## ---------------------------------------------------------
+## Covariance with habitat selection:
+u <- HSRSroe[[3]]
+cov(sapply(u, function(x) x[1,1]),
+    sapply(u, function(x) x[5,1]))
+
+
+## Covariance between year 1 and 5 without habitat selection
+u2 <- roeNoHS[[3]]
+cov(sapply(u2, function(x) x[1,1]),
+    sapply(u2, function(x) x[5,1]))
+
+
+## ---------------------------------------------------------
+simulate_large_range_roe_deer <- function()
 {
     ## between 5 ànd 10 patches
     np <- sample(5:10, 1)
@@ -1317,7 +1358,7 @@ simulate_red_deer <- function()
     return(z)
 }
 
-plot(simulate_red_deer(), ty="l")
+plot(simulate_large_range_roe_deer(), ty="l")
 
 
 ## ---------------------------------------------------------
@@ -1375,12 +1416,12 @@ whi <- c(1:nrow(liN))[liN[,5]==240][
 
 
 ## ----eval=FALSE-------------------------------------------
-## redNoHS <- process_all(simrd5nohsrd)
+## LRroeNoHS <- process_all(simrd5nohsrd)
 
 
 ## ---------------------------------------------------------
 oldopt <- options(width = 100)
-present_results_CT(redNoHS, dfPopSizeRedDeer)
+present_results_CT(LRroeNoHS, dfPopSizeRedDeer)
 options(oldopt)
 
 
@@ -1389,14 +1430,184 @@ options(oldopt)
 
 
 ## ----eval=FALSE-------------------------------------------
-## redNoHS25 <- process_all(simrd5nohs25rd)
+## LRroeNoHS25 <- process_all(simrd5nohs25rd)
 
 
 ## ---------------------------------------------------------
 oldopt <- options(width = 100)
-present_results_CT(redNoHS25, dfPopSizeRedDeer)
+present_results_CT(LRroeNoHS25, dfPopSizeRedDeer)
 options(oldopt)
 
+
+
+## ----eval=FALSE-------------------------------------------
+## ## This function simulate such movements: this function takes one
+## ## argument si, the half-size of the box in which the patch centers
+## ## are sampled, and returns the coordinates of the animal monitored
+## ## during one month.
+## simulate_LR_deerHR <- function(si=2000)
+## {
+##     np <- sample(5:10, 1)
+##     ## the patches:
+##     cb <- cbind(runif(np,-si,si),
+##                 runif(np,-si,si))
+##     ## between 5 and 10 patches
+##     ## simulation
+##     lipt <- list(ptg=mvtMatrices$listMatBetween[[10]],
+##                  ptp=mvtMatrices$listMatBetween[[10]])
+##     lixyt <- list(cb, cb)
+##     z <- roeDeerMovement(30, lixyt, lipt = lipt,
+##                          verbose = FALSE)
+##     return(z)
+## }
+## 
+## ## Year 1
+## ar1 <- sapply(1:100, function(i) {
+##     cat(i,"\r")
+##     s <- simulate_LR_deerHR(si=1414)
+##     sr <- s[seq(1,nrow(s), length=5000),]
+##     pc <- mcp(SpatialPoints(as.data.frame(sr)))
+##     return(pc$area)
+## })
+## 
+## ## Year 5
+## ar2 <- sapply(1:100, function(i) {
+##     cat(i,"\r")
+##     s <- simulate_LR_deerHR(si=2000)
+##     sr <- s[seq(1,nrow(s), length=5000),]
+##     pc <- mcp(SpatialPoints(as.data.frame(sr)))
+##     return(pc$area)
+## })
+## 
+## 
+## LRroeIS2years <- list(ar1,ar2)
+## names(LRroeIS2years) <- c("year 1", "year 5")
+## 
+
+
+## ---------------------------------------------------------
+boxplot(LRroeIS2years, xlab="Year", ylab="Home-range size (ha)")
+
+
+## ----eval=FALSE-------------------------------------------
+## LRDeerDVa <- simulateCTStudy5years(nCT = 100, duration = 30,
+##                                    niter = 500,
+##                                    dfPopSizeRedDeer,
+##                                    listPatches, contourChize,
+##                                    contourN=northChize,
+##                                    contourS=southChize,
+##                                    dff=relationAnimalSigmaMaxd,
+##                                    habitatMap=habitatMap,
+##                                    listptg=mvtMatrices$listMatBetween,
+##                                    ptp=mvtMatrices$MatWithin,
+##                                    LRroeDeer=TRUE, LRroeDeerIncreaseDV=TRUE, nofi = 0,
+##                                    backup = TRUE)
+## 
+
+
+## ----eval=FALSE-------------------------------------------
+## LRRoeIncreasingHR <- process_all(LRDeerDVa)
+
+
+## ---------------------------------------------------------
+oldopt <- options(width = 100)
+present_results_CT(LRRoeIncreasingHR, dfPopSizeRedDeer)
+options(oldopt)
+
+
+## ----eval=FALSE-------------------------------------------
+## roeDeerManyTraps <- simulateCTStudy5years(nCT = 780, duration = 30,
+##                                           niter = 100, dfPopSize,
+##                                           listPatches, contourChize,
+##                                           contourN=northChize,
+##                                           contourS=southChize,
+##                                           dff=relationAnimalSigmaMaxd,
+##                                           habitatMap,
+##                                           listptg=mvtMatrices$listMatBetween,
+##                                           ptp=mvtMatrices$MatWithin, nofi = 0,
+##                                           backup = TRUE)
+
+
+## ----eval=FALSE-------------------------------------------
+## system.time(REM760CT <- processCTStudy(s,method="REM", Nboot=500))
+## system.time(IS760CT <- processCTStudy(s,method="IS", Nboot=500))
+## res760CT <- list(REM=REM760CT, IS=IS760CT)
+
+
+## ---------------------------------------------------------
+re <- do.call(rbind,lapply(res760CT, function(y) {
+    popsi <- sapply(y, function(x) x[1,1])
+    trend <- sapply(y, function(x) x[6,1])
+    sigtrend <- mean(sapply(y, function(x) x[6,4]<0))
+    dectrend <- mean(sapply(y, function(x) x[6,1]<0))
+    return(c(mean(popsi), sd(popsi), mean(trend), sd(trend), dectrend, sigtrend))
+}))
+colnames(re) <- c("MeanPop","SEPop", "MeanTrend","SETrend", "PDec", "PsigD")
+rownames(re) <- c("REM_da","IS_da")
+round(re,3)
+
+
+## ----eval=FALSE-------------------------------------------
+## ## For each iteration
+## for (i in 1:length(roeDeerManyTraps$encounters)) {
+##     ## for each year
+##     for (a in 1:5) {
+##         z <- roeDeerManyTraps$encounters[[i]]$results[[a]]
+##         ## for each pair of animal/trap
+##         for (j in 1:length(z)) {
+##             ## keep only the encounters occurring during the
+##             ## first 3.95 days
+##             x <- z[[j]]
+##             y <- x[x$beginning < (3.95*3600*24),]
+##             z[[j]] <- y
+##         }
+##         ## store the results
+##         roeDeerManyTraps$encounters[[i]]$results[[a]] <-
+##             z[sapply(z,nrow)>0]
+##     }
+## }
+
+
+## ----eval=FALSE-------------------------------------------
+## roe760coef <- process_all(roeDeerManyTraps)
+
+
+## ---------------------------------------------------------
+## Post-processing
+## for each estimation method
+for (i in 1:length(roe760coef)) {
+
+    ## for each iteration
+    for (j in 1:length(roe760coef[[i]])) {
+
+        ## Multiply the population size estimates by 7.6 to account
+        ## for the fact that the duration was 7.6 times smaller
+        x <- roe760coef[[i]][[j]]
+        x[1:5,1] <- x[1:5,1]*(30/3.95)
+        x[1:5,3] <- x[1:5,3]*(30/3.95)
+        x[1:5,4] <- x[1:5,4]*(30/3.95)
+
+        ## Multiply the variance of the population size estimates by
+        ## 7.6^2 and updates the standard errors
+        va <- x[1:5,2]^2
+        vab <- va*((30/3.95)^2)
+        x[1:5,2] <- sqrt(vab)
+
+        ## trends and change rate SE are not expected to change
+        ## since the popsize estimates are all multiplied by the same value
+        ## so that the slope on a log scale will remain the same,
+        ## and the ratio between two popsize will remain the same too.
+
+        ## We store the results
+        roe760coef[[i]][[j]] <- x
+    }
+}
+
+
+## ---------------------------------------------------------
+oldopt <- options(width = 100)
+present_results_CT(roe760coef, dfPopSizeRedDeer)
+options(oldopt)
 
 
 ## ----eval=FALSE-------------------------------------------

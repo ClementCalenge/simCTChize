@@ -1,19 +1,19 @@
-\name{roeNoHS25}
-\alias{roeNoHS25}
+\name{LRroeNoHS25}
+\alias{LRroeNoHS25}
 \docType{data}
 \title{
   Population Size and Trend Estimates for our Simulations of a Camera
-  Trap Study on a Roe Deer population (no Habitat Selection) with 25 Traps
+  Trap Study on a Large-Range Roe Deer population Based on 25 traps (no Habitat Selection)
 }
 \description{
   This dataset contains the point estimates and bootstrap confidence
   intervals on population size and trends for our 1000 simulations of a
-  5-year camera trap monitoring of a roe deer population (no habitat
-  selection simulated). These estimates were obtained for 25 traps. See
-  examples for the code used to create this 
+  5-year camera trap monitoring based on 25 traps of a large-range roe deer
+  population (large home ranges, no habitat
+  selection simulated). See examples for the code used to create this
   object.
 }
-\usage{data("roeNoHS")}
+\usage{data("LRroeNoHS25")}
 \format{
 
   This dataset is a list with 6 components.  The first three components
@@ -51,17 +51,21 @@
 }
 \examples{
 
-
-## The actual dataset containing the results of the 1000 simulations
-## was too large to fit in this package. We illustrate the code used
-## to generate the dataset roeNoHS using only the 4 simulations stored
-## in sim4iter.
+## The actual dataset containing the results of the 1000 simulations was
+## too large to fit in this package. We have an example dataset on the
+## standard roe deer (sim4iter, see the help page of this object), and
+## the object on the large-range roe deer is obtained similarly, but
+## setting LRroeDeer = TRUE in the function simulateCTStudy5years. We
+## illustrate the code used to generate the dataset LRroeNoHS, using
+## only the 4 simulations stored in sim4iter, and with the difference
+## that sim4iter corresponds to simulation of a roe deer population, not
+## a red deer population.
 
 ## We first subsampled the traps in this dataset to obtain a monitoring
 ## with 25 traps
 sim4iter25 <- sampleCTs(sim4iter, 25)
 
-## We first wrote this function:
+## We then wrote this function:
 
 compute_all <- function(simrd5nohs)
 {

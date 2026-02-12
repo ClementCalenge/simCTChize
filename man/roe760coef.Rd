@@ -1,20 +1,21 @@
-\name{roeHSBiasedSam}
-\alias{roeHSBiasedSam}
+\name{roe760coef}
+\alias{roe760coef}
 \docType{data}
 \title{
   Population Size and Trend Estimates for our Simulations of a Camera
-  Trap Study on a Roe Deer population Based on 100 traps (all placed in
-  the habitat type selected by the roe deer)
+  Trap Study on a Roe Deer population Based on 760 traps (no Habitat
+  Selection) and a Study period of 3.95 Days.
 }
 \description{
   This dataset contains the point estimates and bootstrap confidence
-  intervals on population size and trends for our 1000 simulations of a
-  5-year camera trap monitoring based on 100 traps of a roe deer
-  population all placed in 
-  the habitat type selected by the roe deer. See examples for the code used to create this
-  object.
+  intervals on population size and trends for our 100 simulations of a
+  5-year camera trap monitoring based on 760 traps of a roe deer population (no habitat
+  selection simulated), with a study period of 3.95 days. Warning, these
+  estimations are biased as they suppose a study period of 30 days. See the
+  vignette for the code used to create this object, and the post
+  processing for bias correction.
 }
-\usage{data("roeHSBiasedSam")}
+\usage{data("roe760coef")}
 \format{
 
   This dataset is a list with 6 components.  The first three components
@@ -52,29 +53,7 @@
 }
 \examples{
 
-## We first simulated a habitat selection by the roe deer and a
-## stratified sampling of the traps, using this code:
-## DONT RUN IT, it is extremely slow !!!
-
-\dontrun{
-    
-simrd5withhs <- simulateCTStudy5years(nCT = 100, duration = 30,
-                                      niter = 500, dfPopSize, 
-                                      listPatches, contourChize, contourN=northChize,
-                                      contourS=southChize,
-                                      dff=relationAnimalSigmaMaxd, habitatMap,
-                                      listptg=mvtMatrices$listMatBetween,
-                                      ptp=mvtMatrices$MatWithin, stratSampling=TRUE,
-                                      propPaths=1, pathsMap=pathsMap,
-                                      pathsBuffer=pathsBuffer, offPathsMap=offPathsMap,
-                                      offPathsBuffer=offPathsBuffer,
-                                      habitatSelection=TRUE,
-                                      nofi = 0, backup = TRUE)
-}
-
-
-## We then used the same code as the one used for roeNoHS (see the
-## examples on the help page of this dataset)
+## See the vignette
 
 }
 \keyword{datasets}

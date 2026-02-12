@@ -1,8 +1,8 @@
 Package: simCTChize
 Type: Package
 Title: Simulate a Camera Trap Monitoring of a Roe Deer Population in Chize
-Version: 1.0
-Date: 2024-04-03
+Version: 1.2
+Date: 2026-02-12
 Author: Clement Calenge <clement.calenge@ofb.gouv.fr>
 Maintainer: Clement Calenge <clement.calenge@ofb.gouv.fr>
 Depends: R (>= 4.1.0)
